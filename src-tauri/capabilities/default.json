@@ -22,6 +22,8 @@
     "notification:allow-show",
     "dialog:default",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "fs:default",
+    "fs:write-all"
   ]
 }
