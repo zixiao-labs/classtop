@@ -256,6 +256,9 @@ const rewidthProgressBar = () => {
     span.style.fontSize = '1rem';
     span.style.fontWeight = '500';
     span.style.fontFamily = getComputedStyle(progressElement).fontFamily || 'inherit';
+    // 使用与进度条文字相同的渲染设置
+    span.style.webkitFontSmoothing = 'antialiased';
+    span.style.textRendering = 'geometricPrecision';
     document.body.appendChild(span);
     const widthPx = span.getBoundingClientRect().width;
     document.body.removeChild(span);
@@ -350,8 +353,15 @@ export let current = null;
   text-align: center;
   pointer-events: none;
   z-index: 1;
+  /* 统一字体渲染，修复高DPI设备上的对齐问题 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
+/* 顶层文字 - 在进度条填充区域显示（浅色） */
 /* 顶层文字 - 在进度条填充区域显示（浅色） */
 .currentClass::after {
   content: attr(data-text);
@@ -368,6 +378,12 @@ export let current = null;
   text-align: center;
   pointer-events: none;
   z-index: 2;
+  /* 统一字体渲染，修复高DPI设备上的对齐问题 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: translateZ(0);
+  backface-visibility: hidden;
   /* 使用像素值精确裁剪，与进度条填充位置完全对应 */
   -webkit-mask-image: linear-gradient(
     to right,
@@ -397,6 +413,7 @@ export let current = null;
 
   .currentClass::before {
     line-height: 1.8rem;
+    font-size: 0.9rem;
   }
 
   .currentClass::after {
