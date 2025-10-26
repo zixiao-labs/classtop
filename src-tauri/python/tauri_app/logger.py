@@ -43,8 +43,13 @@ def _caller_depth() -> int:
         try:
             fpath = Path(frame_info.filename).resolve()
             if fpath != current_file:
-                # loguru's depth is number of frames to skip; add 0 for current
-                return depth
+                # We need to subtract 1 because:
+                # - enumerate starts at 0 (this function's frame)
+                # - depth=1 would be log_message's frame
+                # - depth=2+ would be the actual caller
+                # But loguru's opt(depth=N) counts from the opt() call itself,
+                # so we need to adjust by -1 to get the right frame
+                return max(0, depth - 1)
         except Exception:
             continue
     return 0

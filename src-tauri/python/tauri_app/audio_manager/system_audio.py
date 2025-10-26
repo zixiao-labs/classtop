@@ -7,6 +7,7 @@ import time
 from threading import Thread
 from .core import AudioMonitor, AudioLevel
 from datetime import datetime
+from .. import logger
 
 
 class SystemAudioMonitor(AudioMonitor):
@@ -23,16 +24,24 @@ class SystemAudioMonitor(AudioMonitor):
         try:
             from comtypes import CLSCTX_ALL
             from pycaw.pycaw import AudioUtilities, IAudioMeterInformation
+            from pycaw.constants import EDataFlow, ERole
 
-            # 获取默认音频输出设备
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(
-                IAudioMeterInformation._iid_, CLSCTX_ALL, None)
+            # 直接使用设备枚举器获取默认音频输出设备
+            device_enumerator = AudioUtilities.GetDeviceEnumerator()
+            # 获取默认音频渲染设备的COM接口
+            default_device = device_enumerator.GetDefaultAudioEndpoint(
+                EDataFlow.eRender.value, ERole.eMultimedia.value
+            )
+
+            # 激活音频计量接口
+            interface = default_device.Activate(
+                IAudioMeterInformation._iid_, CLSCTX_ALL, None
+            )
             self._audio_meter = interface.QueryInterface(IAudioMeterInformation)
 
         except Exception as e:
-            print(f"初始化Pycaw失败: {e}")
-            print("提示: 系统音频监控需要pycaw库，请运行: pip install pycaw comtypes")
+            logger.log_message("warning", f"Failed to initialize Pycaw: {e}")
+            logger.log_message("info", "Note: System audio monitoring requires pycaw library. Please run: pip install pycaw comtypes")
             self._audio_meter = None
 
     def start(self):
@@ -41,7 +50,7 @@ class SystemAudioMonitor(AudioMonitor):
             return
 
         if self._audio_meter is None:
-            print("错误: 无法初始化系统音频监控。")
+            logger.log_message("error", "Cannot start system audio monitor: Pycaw not initialized")
             return
 
         self.is_running = True
@@ -83,5 +92,5 @@ class SystemAudioMonitor(AudioMonitor):
                 time.sleep(0.05)  # 20Hz更新率
 
         except Exception as e:
-            print(f"系统音频监控错误: {e}")
+            logger.log_message("error", f"System audio monitoring error: {e}")
             self.is_running = False
