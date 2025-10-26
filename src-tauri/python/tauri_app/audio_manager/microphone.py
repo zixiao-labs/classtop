@@ -6,6 +6,7 @@ import sounddevice as sd
 import time
 from .core import AudioMonitor, AudioLevel
 from threading import Thread
+from .. import _logger
 
 
 class MicrophoneMonitor(AudioMonitor):
@@ -24,7 +25,7 @@ class MicrophoneMonitor(AudioMonitor):
     def _audio_callback(self, indata, frames, time_info, status):
         """音频输入回调"""
         if status:
-            print(f"麦克风状态: {status}")
+            _logger.log_message("info", f"Microphone status: {status}")
 
         # 计算响度
         audio_data = indata[:, 0] if self.channels > 1 else indata.flatten()
@@ -49,5 +50,5 @@ class MicrophoneMonitor(AudioMonitor):
                 while self.is_running and not self._stop_event.is_set():
                     time.sleep(0.1)
         except Exception as e:
-            print(f"麦克风监控错误: {e}")
+            _logger.log_message("error", f"Microphone monitoring error: {e}")
             self.is_running = False

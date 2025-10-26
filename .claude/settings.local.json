@@ -1,10 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:pytauri.github.io)",
-      "WebFetch(domain:www.mdui.org)",
-      "WebSearch",
-      "WebFetch(domain:tauri.app)"
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
