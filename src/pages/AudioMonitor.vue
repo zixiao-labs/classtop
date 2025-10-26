@@ -54,7 +54,7 @@
               <span>Peak: {{ formatValue(systemLevel.peak) }}</span>
             </div>
             <mdui-linear-progress
-              :value="calculatePercentage(systemLevel.peak)"
+              :value="calculatePercentage(systemLevel.peak) * 0.015"
               class="level-bar"
             ></mdui-linear-progress>
           </div>

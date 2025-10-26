@@ -33,15 +33,15 @@ class SystemTray:
                 # Create window based on configuration
                 if window_name == "main":
                     logger.log_message("info", f"Creating window '{window_name}'")
-                    # Create main window with configuration from tauri.conf.json
+                    # Create main window with configuration optimized for small screens
                     window = WebviewWindowBuilder.build(
                         self.app_handle,
                         window_name,
                         WebviewUrl.App("/"),  # Use WebviewUrl.App for internal routes
                         title="ClassTop",
-                        inner_size=(1200.0, 800.0),
+                        inner_size=(1000.0, 700.0),  # Reduced from 1200x800 for better compatibility
                         min_inner_size=(800.0, 600.0),
-                        position=(300.0, 100.0),
+                        prevent_overflow=True,  # Prevent window from overflowing screen bounds
                         resizable=True,
                         maximizable=True,
                         minimizable=True,
@@ -51,7 +51,7 @@ class SystemTray:
                         skip_taskbar=False,
                         transparent=False,
                         shadow=True,
-                        center=True,
+                        center=True,  # Center the window instead of fixed position
                         focused=True,
                         visible=True
                     )
