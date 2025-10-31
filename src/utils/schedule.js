@@ -489,3 +489,16 @@ export async function importScheduleData(format, data, replaceExisting = false) 
     return { success: false, message: '导入失败', courses_imported: 0, schedule_imported: 0 };
   }
 }
+
+/**
+ * 从GitHub下载随机主题图片
+ */
+export async function downloadRandomThemeImage() {
+  try {
+    const result = await pyInvoke('download_random_theme_image');
+    return result;
+  } catch (error) {
+    console.error('Failed to download theme image:', error);
+    return { success: false, message: '下载失败' };
+  }
+}

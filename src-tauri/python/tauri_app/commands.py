@@ -771,6 +771,87 @@ async def get_audio_devices() -> AudioDevicesResponse:
         )
 
 
+# ========== Theme Commands ==========
+
+class DownloadThemeImageResponse(BaseModel):
+    """Response for downloading theme image from GitHub"""
+    success: bool
+    image_data: Optional[str] = None  # base64 encoded image
+    image_name: Optional[str] = None
+    message: str
+
+
+@commands.command()
+async def download_random_theme_image() -> DownloadThemeImageResponse:
+    """Download a random image from color_ref folder on GitHub for theme generation."""
+    try:
+        import urllib.request
+        import base64
+        import random
+        import json
+
+        # GitHub API endpoint for color_ref folder
+        api_url = "https://api.github.com/repos/Zixiao-System/classtop/contents/color_ref"
+
+        _logger.log_message("info", "Fetching color_ref folder from GitHub...")
+
+        # Fetch folder contents
+        req = urllib.request.Request(api_url)
+        req.add_header('User-Agent', 'ClassTop-Dynamic-Theme/1.0')
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            files = json.loads(response.read().decode('utf-8'))
+
+        # Filter image files
+        image_files = [f for f in files if f['type'] == 'file' and
+                      f['name'].lower().endswith(('.png', '.jpg', '.jpeg'))]
+
+        if not image_files:
+            return DownloadThemeImageResponse(
+                success=False,
+                message="No image files found in color_ref folder"
+            )
+
+        # Select random image
+        selected_image = random.choice(image_files)
+        image_url = selected_image['download_url']
+        image_name = selected_image['name']
+
+        _logger.log_message("info", f"Downloading theme image: {image_name}")
+
+        # Download image
+        req = urllib.request.Request(image_url)
+        req.add_header('User-Agent', 'ClassTop-Dynamic-Theme/1.0')
+
+        with urllib.request.urlopen(req, timeout=30) as response:
+            image_data = response.read()
+
+        # Encode to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+        _logger.log_message("info", f"Successfully downloaded theme image: {image_name}")
+
+        return DownloadThemeImageResponse(
+            success=True,
+            image_data=image_base64,
+            image_name=image_name,
+            message=f"Successfully downloaded {image_name}"
+        )
+
+    except urllib.error.URLError as e:
+        _logger.log_message("error", f"Network error downloading theme image: {e}")
+        return DownloadThemeImageResponse(
+            success=False,
+            message=f"Network error: {str(e)}"
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Failed to download theme image: {e}")
+        return DownloadThemeImageResponse(
+            success=False,
+            message=f"Failed to download theme image: {str(e)}"
+        )
+
+
 # ========== Data Import/Export Commands ==========
 
 class ExportDataRequest(BaseModel):

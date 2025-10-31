@@ -1,9 +1,17 @@
 <script setup>
 import { onMounted } from 'vue';
 import { initReminderNotifications } from './utils/notifications';
+import { initThemeOnStartup } from './utils/theme';
 
-// Initialize reminder notifications on app start
+// Initialize on app start
 onMounted(async () => {
+  try {
+    // Initialize theme first for better UX
+    await initThemeOnStartup();
+  } catch (error) {
+    console.error('Failed to initialize theme:', error);
+  }
+
   try {
     await initReminderNotifications();
   } catch (error) {
