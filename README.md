@@ -6,6 +6,17 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-MPL_v2-green)
 
+## 📝 应用Logo
+
+应用使用的Logo文件位于以下目录：
+
+- **源文件**: `icons/Icon-iOS-Default-1024x1024@1x.png` (1024x1024)
+- **应用图标**: `src-tauri/icons/` 目录包含各平台所需的多种尺寸图标
+  - PNG 文件：32x32, 128x128, 256x256 (128x128@2x), 512x512
+  - macOS 图标：icon.icns
+  - Windows 图标：icon.ico
+  - Windows Store 图标：Square*.png 系列
+
 ## ✨ 特性
 
 ### 置顶进度条 (TopBar)

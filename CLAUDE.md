@@ -29,6 +29,22 @@ ClassTop is a desktop course management and display tool built with Tauri 2 + Vu
 - Python 3.10+ backend logic
 - SQLite database
 
+## Application Icons
+
+The application uses icons located in the following directories:
+
+**Source Icon:**
+- `icons/Icon-iOS-Default-1024x1024@1x.png` - 1024x1024 source image
+
+**Application Icons** (located in `src-tauri/icons/`):
+- PNG icons: 32x32.png, 128x128.png, 128x128@2x.png (256x256), icon.png (512x512)
+- macOS icon: icon.icns (multi-resolution bundle)
+- Windows icon: icon.ico (multi-resolution bundle)
+- Windows Store icons: Square30x30Logo.png through Square310x310Logo.png, StoreLogo.png
+
+**Icon Configuration:**
+Icons are configured in `src-tauri/tauri.bundle.json` under the `bundle.icon` array. All icons are automatically generated from the source PNG using platform-specific tools (sips for PNG/ICNS on macOS, ImageMagick for ICO files).
+
 ## Development Commands
 
 ### Development Mode
