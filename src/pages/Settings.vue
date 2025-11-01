@@ -390,8 +390,32 @@ async function handleReminderTimeChange(event) {
 
 // ============= 服务器同步相关函数 =============
 
+// URL 验证函数
+function isValidUrl(urlString) {
+  if (!urlString || urlString.trim() === '') {
+    return true; // 允许空 URL（表示未配置）
+  }
+
+  try {
+    const url = new URL(urlString);
+    // 只允许 http 和 https 协议
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (error) {
+    return false;
+  }
+}
+
 // 保存 Management Server URL
 async function saveManagementServerUrl() {
+  // 验证 URL 格式
+  if (!isValidUrl(managementServerUrl.value)) {
+    snackbar({
+      message: 'URL 格式无效，请输入有效的 HTTP 或 HTTPS 地址（如：http://localhost:8000）',
+      placement: 'top'
+    });
+    return;
+  }
+
   // 同时保存到 server_url（兼容旧的 WebSocket 客户端）
   settings.server_url = managementServerUrl.value;
   await saveSetting('server_url', managementServerUrl.value);

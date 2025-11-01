@@ -23,6 +23,7 @@ class SyncClient:
         self.logger = _logger
         self.sync_thread = None
         self.is_running = False
+        self.uuid_lock = threading.Lock()  # 用于 UUID 生成的线程锁
 
     def register_client(self) -> bool:
         """向服务器注册客户端"""
@@ -32,11 +33,12 @@ class SyncClient:
                 self.logger.log_message("warning", "未配置服务器地址")
                 return False
 
-            # 获取或生成客户端 UUID
-            client_uuid = self.settings_manager.get_setting("client_uuid", "")
-            if not client_uuid:
-                client_uuid = str(uuid.uuid4())
-                self.settings_manager.set_setting("client_uuid", client_uuid)
+            # 获取或生成客户端 UUID（线程安全）
+            with self.uuid_lock:
+                client_uuid = self.settings_manager.get_setting("client_uuid", "")
+                if not client_uuid:
+                    client_uuid = str(uuid.uuid4())
+                    self.settings_manager.set_setting("client_uuid", client_uuid)
 
             # 获取客户端名称
             client_name = self.settings_manager.get_setting(
@@ -109,11 +111,7 @@ class SyncClient:
                         "day_of_week": entry["day_of_week"],
                         "start_time": entry["start_time"],
                         "end_time": entry["end_time"],
-                        "weeks": (
-                            json.loads(entry["weeks"])
-                            if entry.get("weeks")
-                            else []
-                        ),
+                        "weeks": self._parse_weeks(entry.get("weeks")),
                     }
                     for entry in schedule_entries
                 ],
@@ -172,8 +170,8 @@ class SyncClient:
 
     def start_auto_sync(self):
         """启动自动同步（后台线程）"""
-        sync_enabled = self.settings_manager.get_setting("sync_enabled", "false")
-        if sync_enabled.lower() != "true":
+        sync_enabled = self.settings_manager.get_setting_bool("sync_enabled", False)
+        if not sync_enabled:
             self.logger.log_message("info", "同步功能未启用")
             return
 
@@ -219,3 +217,25 @@ class SyncClient:
             except Exception as e:
                 self.logger.log_message("error", f"同步循环异常: {e}")
                 time.sleep(60)  # 出错后等待 1 分钟
+
+    def _parse_weeks(self, weeks_data: Optional[str]) -> List[int]:
+        """安全解析 weeks JSON 数据
+
+        Args:
+            weeks_data: JSON 字符串或 None
+
+        Returns:
+            周次列表，解析失败时返回空列表
+        """
+        if not weeks_data:
+            return []
+
+        try:
+            weeks = json.loads(weeks_data)
+            # 确保返回值是列表且所有元素都是整数
+            if isinstance(weeks, list):
+                return [int(w) for w in weeks if isinstance(w, (int, str)) and str(w).isdigit()]
+            return []
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            self.logger.log_message("warning", f"解析 weeks 数据失败: {e}, 数据: {weeks_data}")
+            return []
