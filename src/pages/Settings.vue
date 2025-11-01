@@ -416,6 +416,23 @@ async function saveManagementServerUrl() {
     return;
   }
 
+  // 安全提示：HTTP URL 警告（非 localhost）
+  if (managementServerUrl.value && managementServerUrl.value.trim()) {
+    try {
+      const url = new URL(managementServerUrl.value);
+      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+
+      if (url.protocol === 'http:' && !isLocalhost) {
+        snackbar({
+          message: '⚠️ 警告：使用 HTTP 而非 HTTPS，数据将以明文传输。仅建议在受信任的局域网中使用。',
+          placement: 'top'
+        });
+      }
+    } catch (e) {
+      // URL 验证已在 isValidUrl 中完成，这里忽略解析错误
+    }
+  }
+
   // 同时保存到 server_url（兼容旧的 WebSocket 客户端）
   settings.server_url = managementServerUrl.value;
   await saveSetting('server_url', managementServerUrl.value);
