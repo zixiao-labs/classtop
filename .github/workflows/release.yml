@@ -63,10 +63,27 @@ jobs:
             libssl-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libfuse2
+            libfuse2 \
+            desktop-file-utils \
+            libgdk-pixbuf2.0-dev \
+            squashfs-tools
 
       - name: Install frontend dependencies
         run: npm install
+
+      - name: Test AppImage environment (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          # Download a small AppImage to test if extraction works
+          wget https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage -O test-appimage
+          chmod +x test-appimage
+
+          # Test with APPIMAGE_EXTRACT_AND_RUN
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          ./test-appimage --version || echo "AppImage execution failed with APPIMAGE_EXTRACT_AND_RUN"
+
+          # Clean up
+          rm -f test-appimage
 
       - name: Download Python standalone (Windows)
         if: matrix.platform == 'windows-latest'
@@ -105,6 +122,8 @@ jobs:
           PYO3_PYTHON: ${{ github.workspace }}/src-tauri/pyembed/python/${{ matrix.platform == 'windows-latest' && 'python.exe' || 'bin/python3' }}
           RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && format('-L {0}/src-tauri/pyembed/python/libs', github.workspace) || format('-L {0}/src-tauri/pyembed/python/lib', github.workspace) }}
           APPIMAGE_EXTRACT_AND_RUN: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
+          RUST_BACKTRACE: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
+          RUST_LOG: ${{ matrix.platform == 'ubuntu-22.04' && 'debug' || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'ClassTop v__VERSION__'
