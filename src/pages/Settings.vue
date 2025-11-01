@@ -33,6 +33,74 @@
       </mdui-list>
     </mdui-card>
 
+    <!-- 服务器同步设置 -->
+    <mdui-card class="settings-group">
+      <span class="group-title">服务器同步</span>
+      <mdui-divider></mdui-divider>
+      <mdui-list>
+        <mdui-list-item icon="badge" rounded nonclickable>
+          客户端名称
+          <mdui-text-field style="height: 53px; min-width: 300px;" variant="filled" label="在服务器上显示的名称"
+            :value="settings.client_name" @input="settings.client_name = $event.target.value"
+            @blur="saveSetting('client_name', settings.client_name)" slot="end-icon"
+            placeholder="留空则使用主机名">
+          </mdui-text-field>
+        </mdui-list-item>
+        <mdui-list-item icon="cloud" rounded>
+          启用自动同步
+          <mdui-switch :checked="settings.sync_enabled" @change="handleSyncEnabledChange"
+            slot="end-icon">
+          </mdui-switch>
+        </mdui-list-item>
+        <mdui-list-item icon="timer" rounded nonclickable :disabled="settings.sync_enabled !== 'true'">
+          同步间隔
+          <mdui-segmented-button-group selects="single" :value="settings.sync_interval || '300'"
+            @change="handleSyncIntervalChange" slot="end-icon">
+            <mdui-segmented-button value="60">1分钟</mdui-segmented-button>
+            <mdui-segmented-button value="300">5分钟</mdui-segmented-button>
+            <mdui-segmented-button value="600">10分钟</mdui-segmented-button>
+            <mdui-segmented-button value="1800">30分钟</mdui-segmented-button>
+          </mdui-segmented-button-group>
+        </mdui-list-item>
+        <mdui-list-item icon="lan" rounded nonclickable>
+          Management Server 地址
+          <mdui-text-field style="height: 53px; min-width: 300px;" type="url" variant="filled"
+            label="Management Server URL"
+            :value="managementServerUrl" @input="managementServerUrl = $event.target.value"
+            @blur="saveManagementServerUrl" slot="end-icon"
+            placeholder="http://192.168.1.100:8765">
+          </mdui-text-field>
+        </mdui-list-item>
+        <mdui-list-item rounded nonclickable>
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <mdui-button variant="outlined" icon="wifi_find" @click="testConnection"
+              :loading="isTestingConnection">
+              测试连接
+            </mdui-button>
+            <mdui-button variant="outlined" icon="app_registration" @click="registerClient"
+              :loading="isRegistering">
+              注册客户端
+            </mdui-button>
+            <mdui-button variant="filled" icon="sync" @click="syncNow"
+              :loading="isSyncing" :disabled="settings.sync_enabled !== 'true'">
+              立即同步
+            </mdui-button>
+          </div>
+        </mdui-list-item>
+        <mdui-list-item v-if="syncStatus" rounded nonclickable>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px;"
+            :style="{ backgroundColor: syncStatus.success ? 'var(--mdui-color-surface-container)' : 'var(--mdui-color-error-container)' }">
+            <mdui-icon :name="syncStatus.success ? 'check_circle' : 'error'"
+              :style="{ color: syncStatus.success ? 'var(--mdui-color-primary)' : 'var(--mdui-color-error)' }">
+            </mdui-icon>
+            <span :style="{ color: syncStatus.success ? 'var(--mdui-color-on-surface)' : 'var(--mdui-color-on-error-container)' }">
+              {{ syncStatus.message }}
+            </span>
+          </div>
+        </mdui-list-item>
+      </mdui-list>
+    </mdui-card>
+
     <!-- 外观设置 -->
     <mdui-card class="settings-group">
       <span class="group-title">外观</span>
@@ -206,9 +274,17 @@ import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, set
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
 import { initThemeFromGitHub } from '../utils/theme';
 import { onMounted, ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 // Reactive state for theme download
 const isDownloadingTheme = ref(false);
+
+// Reactive state for sync operations
+const managementServerUrl = ref(settings.server_url || '');
+const isTestingConnection = ref(false);
+const isRegistering = ref(false);
+const isSyncing = ref(false);
+const syncStatus = ref(null);
 
 // 控制模式切换处理（触摸/鼠标）
 async function handleControlModeChange(event) {
@@ -310,6 +386,168 @@ async function handleReminderTimeChange(event) {
   settings.reminder_minutes = value;
   await saveSetting('reminder_minutes', value);
   snackbar({ message: `提醒时间已设置为提前${value}分钟`, placement: 'top' });
+}
+
+// ============= 服务器同步相关函数 =============
+
+// 保存 Management Server URL
+async function saveManagementServerUrl() {
+  // 同时保存到 server_url（兼容旧的 WebSocket 客户端）
+  settings.server_url = managementServerUrl.value;
+  await saveSetting('server_url', managementServerUrl.value);
+  snackbar({ message: 'Management Server 地址已保存', placement: 'top' });
+}
+
+// 启用/禁用自动同步
+async function handleSyncEnabledChange(event) {
+  const checked = event.target.checked;
+  settings.sync_enabled = checked;
+  await saveSetting('sync_enabled', checked);
+
+  if (checked) {
+    snackbar({ message: '自动同步已启用', placement: 'top' });
+  } else {
+    snackbar({ message: '自动同步已禁用', placement: 'top' });
+  }
+}
+
+// 同步间隔切换
+async function handleSyncIntervalChange(event) {
+  const value = event.target.value || settings.sync_interval;
+  settings.sync_interval = value;
+  await saveSetting('sync_interval', value);
+
+  const minutes = Math.floor(value / 60);
+  snackbar({ message: `同步间隔已设置为${minutes}分钟`, placement: 'top' });
+}
+
+// 测试服务器连接
+async function testConnection() {
+  isTestingConnection.value = true;
+  syncStatus.value = null;
+
+  try {
+    // 先保存 URL
+    await saveManagementServerUrl();
+
+    // 调用 Python 命令测试连接
+    const result = await invoke('test_server_connection');
+
+    syncStatus.value = {
+      success: result.success,
+      message: result.message
+    };
+
+    if (result.success) {
+      snackbar({
+        message: '连接成功！服务器运行正常',
+        placement: 'top'
+      });
+    } else {
+      snackbar({
+        message: `连接失败: ${result.message}`,
+        placement: 'top'
+      });
+    }
+  } catch (error) {
+    console.error('Test connection error:', error);
+    syncStatus.value = {
+      success: false,
+      message: `连接失败: ${error}`
+    };
+    snackbar({
+      message: `连接失败: ${error}`,
+      placement: 'top'
+    });
+  } finally {
+    isTestingConnection.value = false;
+  }
+}
+
+// 注册客户端
+async function registerClient() {
+  isRegistering.value = true;
+  syncStatus.value = null;
+
+  try {
+    // 先保存 URL 和客户端名称
+    await saveManagementServerUrl();
+    if (settings.client_name) {
+      await saveSetting('client_name', settings.client_name);
+    }
+
+    // 调用 Python 命令注册客户端
+    const result = await invoke('register_to_server');
+
+    syncStatus.value = {
+      success: result.success,
+      message: result.message
+    };
+
+    if (result.success) {
+      snackbar({
+        message: '客户端注册成功！',
+        placement: 'top'
+      });
+    } else {
+      snackbar({
+        message: `注册失败: ${result.message}`,
+        placement: 'top'
+      });
+    }
+  } catch (error) {
+    console.error('Register client error:', error);
+    syncStatus.value = {
+      success: false,
+      message: `注册失败: ${error}`
+    };
+    snackbar({
+      message: `注册失败: ${error}`,
+      placement: 'top'
+    });
+  } finally {
+    isRegistering.value = false;
+  }
+}
+
+// 立即同步
+async function syncNow() {
+  isSyncing.value = true;
+  syncStatus.value = null;
+
+  try {
+    // 调用 Python 命令同步
+    const result = await invoke('sync_now');
+
+    syncStatus.value = {
+      success: result.success,
+      message: result.message
+    };
+
+    if (result.success) {
+      snackbar({
+        message: '同步成功！数据已上传到服务器',
+        placement: 'top'
+      });
+    } else {
+      snackbar({
+        message: `同步失败: ${result.message}`,
+        placement: 'top'
+      });
+    }
+  } catch (error) {
+    console.error('Sync now error:', error);
+    syncStatus.value = {
+      success: false,
+      message: `同步失败: ${error}`
+    };
+    snackbar({
+      message: `同步失败: ${error}`,
+      placement: 'top'
+    });
+  } finally {
+    isSyncing.value = false;
+  }
 }
 
 
