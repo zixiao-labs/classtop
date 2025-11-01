@@ -60,8 +60,8 @@ def main() -> int:
             try:
                 from .reminder_manager import ReminderManager
                 reminder_manager = ReminderManager(schedule_manager, settings_manager, app_handle)
-                reminder_enabled = settings_manager.get_setting('reminder_enabled')
-                if reminder_enabled == 'true':
+                reminder_enabled = settings_manager.get_setting_bool('reminder_enabled', False)
+                if reminder_enabled:
                     reminder_manager.start()
                     _logger.log_message("info", "Reminder service started")
                 else:
@@ -86,10 +86,29 @@ def main() -> int:
             except Exception as e:
                 _logger.log_message("error", f"Failed to create WebSocket client: {e}")
 
+            # Initialize sync client for Management Server
+            sync_client = None
+            try:
+                from .sync_client import SyncClient
+
+                sync_client = SyncClient(settings_manager, schedule_manager)
+                _db.set_sync_client(sync_client)
+
+                # 启动时尝试注册并启动自动同步
+                sync_enabled = settings_manager.get_setting_bool("sync_enabled", False)
+                if sync_enabled:
+                    sync_client.register_client()
+                    sync_client.start_auto_sync()
+                    _logger.log_message("info", "Sync client initialized and auto-sync started")
+                else:
+                    _logger.log_message("info", "Sync client initialized but auto-sync disabled")
+            except Exception as e:
+                _logger.log_message("error", f"Failed to initialize sync client: {e}")
+
             # Initialize camera manager if enabled (with WebSocket client reference)
             import platform
-            camera_enabled = settings_manager.get_setting('camera_enabled')
-            if camera_enabled == 'true':
+            camera_enabled = settings_manager.get_setting_bool('camera_enabled', False)
+            if camera_enabled:
                 if platform.system() == "Windows":
                     try:
                         from .camera_manager import CameraManager
@@ -125,8 +144,8 @@ def main() -> int:
 
             # Initialize and start API server if enabled
             try:
-                api_enabled = settings_manager.get_setting('api_server_enabled')
-                if api_enabled == 'true':
+                api_enabled = settings_manager.get_setting_bool('api_server_enabled', False)
+                if api_enabled:
                     api_server = APIServer(_db.DB_PATH, schedule_manager, settings_manager)
                     api_host = settings_manager.get_setting('api_server_host') or '0.0.0.0'
                     api_port = int(settings_manager.get_setting('api_server_port') or 8765)

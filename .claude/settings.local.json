@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git push:*)",
-      "mcp__github__issue_read"
+      "mcp__github__issue_read",
+      "mcp__github__pull_request_read"
     ],
     "deny": [],
     "ask": []

@@ -15,6 +15,11 @@ class SettingsManager:
         # 通用设置
         'client_uuid': lambda: str(uuid.uuid4()),
         'server_url': '',
+        'client_name': '',  # 客户端名称，默认使用主机名
+
+        # Management Server 同步设置
+        'sync_enabled': 'false',  # 是否启用自动同步
+        'sync_interval': '300',  # 同步间隔（秒），默认 5 分钟
 
         # API 服务器设置
         'api_server_enabled': 'false',  # 是否启用 API 服务器
@@ -99,20 +104,21 @@ class SettingsManager:
 
         self.logger.log_message("info", "Default settings initialized")
 
-    def get_setting(self, key: str) -> Optional[str]:
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """获取单个设置值
 
         Args:
             key: 设置键名
+            default: 默认值（如果设置不存在）
 
         Returns:
-            设置值，如果不存在返回 None
+            设置值，如果不存在返回默认值
         """
         with self.get_connection() as conn:
             cur = conn.cursor()
             cur.execute("SELECT value FROM settings WHERE key=?", (key,))
             row = cur.fetchone()
-            return row[0] if row else None
+            return row[0] if row else default
 
     def set_setting(self, key: str, value: str) -> bool:
         """设置单个设置值
@@ -143,6 +149,33 @@ class SettingsManager:
         except Exception as e:
             self.logger.log_message("error", f"Error setting {key}: {e}")
             return False
+
+    def get_setting_bool(self, key: str, default: bool = False) -> bool:
+        """获取布尔类型设置值
+
+        Args:
+            key: 设置键名
+            default: 默认值（如果设置不存在）
+
+        Returns:
+            布尔值
+        """
+        value = self.get_setting(key, str(default).lower())
+        if value is None:
+            return default
+        return value.lower() in ('true', '1', 'yes', 'on')
+
+    def set_setting_bool(self, key: str, value: bool) -> bool:
+        """设置布尔类型设置值
+
+        Args:
+            key: 设置键名
+            value: 布尔值
+
+        Returns:
+            是否成功
+        """
+        return self.set_setting(key, 'true' if value else 'false')
 
     def get_all_settings(self) -> Dict[str, str]:
         """获取所有设置
