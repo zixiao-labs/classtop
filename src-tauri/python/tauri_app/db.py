@@ -13,6 +13,7 @@ schedule_manager = None
 settings_manager = None
 camera_manager = None
 audio_manager = None
+sync_client = None
 
 
 def init_db() -> None:
@@ -110,6 +111,13 @@ def set_audio_manager(manager) -> None:
     global audio_manager
     audio_manager = manager
     logger.log_message("info", "Audio manager instance set")
+
+
+def set_sync_client(client) -> None:
+    """Set the global sync client instance."""
+    global sync_client
+    sync_client = client
+    logger.log_message("info", "Sync client instance set")
 
 
 # Configuration management functions - delegated to settings manager

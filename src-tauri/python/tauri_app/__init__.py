@@ -92,6 +92,7 @@ def main() -> int:
                 from .sync_client import SyncClient
 
                 sync_client = SyncClient(settings_manager, schedule_manager)
+                _db.set_sync_client(sync_client)
 
                 # 启动时尝试注册并启动自动同步
                 sync_enabled = settings_manager.get_setting("sync_enabled", "false")
