@@ -82,12 +82,12 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
           ./linuxdeploy-x86_64.AppImage --appimage-extract > /dev/null
 
-          # Create executable wrapper script and save to cache
-          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage << 'WRAPPER_EOF'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/linuxdeploy-extracted/AppRun" "$@"
-WRAPPER_EOF
+          # Create wrapper script
+          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage <<'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          exec "$SCRIPT_DIR/linuxdeploy-extracted/AppRun" "$@"
+          EOF
 
           chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
           mv squashfs-root ~/.cache/tauri/linuxdeploy-extracted
@@ -98,11 +98,11 @@ WRAPPER_EOF
           chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
           ./linuxdeploy-plugin-appimage-x86_64.AppImage --appimage-extract > /dev/null
 
-          cat > ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage << 'WRAPPER_EOF'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/linuxdeploy-plugin-appimage-extracted/AppRun" "$@"
-WRAPPER_EOF
+          cat > ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage <<'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          exec "$SCRIPT_DIR/linuxdeploy-plugin-appimage-extracted/AppRun" "$@"
+          EOF
 
           chmod +x ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage
           mv squashfs-root ~/.cache/tauri/linuxdeploy-plugin-appimage-extracted
