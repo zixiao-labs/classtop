@@ -1,0 +1,27 @@
+metadata:
+  id: "com.example.myplugin"
+  name: "My Plugin"
+  version: "1.0.0"
+  author: "your-email@example.com"
+  description: "A cross-platform C++ plugin for ClassTop"
+  homepage: "https://github.com/your-username/your-plugin"
+  language: "cpp"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - read:courses
+  - read:schedules
+  - emit:events
+
+certificate:
+  required: false
+  path: "./plugin.crt"
+
+ipc:
+  protocol: "grpc"
+  address: "localhost:50052"
+  timeout: 30
+  tls:
+    enabled: false

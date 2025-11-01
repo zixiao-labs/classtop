@@ -1,0 +1,25 @@
+metadata:
+  id: "com.example.cpp_hello"
+  name: "C++ Hello World Plugin"
+  version: "1.0.0"
+  author: "ClassTop Team"
+  description: "A simple C++ plugin demonstrating basic structure and IPC"
+  homepage: "https://github.com/Zixiao-System/classtop"
+  language: "cpp"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - read:courses
+  - emit:events
+
+certificate:
+  required: false
+
+ipc:
+  protocol: "grpc"
+  address: "localhost:50052"
+  timeout: 30
+  tls:
+    enabled: false

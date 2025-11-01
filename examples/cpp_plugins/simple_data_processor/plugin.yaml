@@ -1,0 +1,24 @@
+metadata:
+  id: "com.example.simple_data_processor"
+  name: "Simple Data Processor"
+  version: "1.0.0"
+  author: "ClassTop Team"
+  description: "Demonstrates shared memory for high-performance data processing"
+  homepage: "https://github.com/Zixiao-System/classtop"
+  language: "cpp"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - emit:events
+
+certificate:
+  required: false
+
+ipc:
+  protocol: "grpc"
+  address: "localhost:50054"
+  timeout: 30
+  tls:
+    enabled: false
