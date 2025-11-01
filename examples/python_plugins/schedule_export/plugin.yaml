@@ -1,0 +1,23 @@
+metadata:
+  id: "com.example.schedule_export"
+  name: "Schedule Export Plugin"
+  version: "1.0.0"
+  author: "ClassTop Team"
+  description: "Exports schedule data to various formats (CSV, iCal, JSON)"
+  language: "python"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+  python_packages:
+    - icalendar>=5.0.0
+
+permissions:
+  - read:courses
+  - read:schedules
+  - access:settings
+  - emit:events
+
+frontend:
+  components:
+    - zone: "settings_page"
+      component: "ScheduleExportSettings"

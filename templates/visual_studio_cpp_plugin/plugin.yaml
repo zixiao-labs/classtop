@@ -1,0 +1,33 @@
+metadata:
+  id: "com.example.myplugin"
+  name: "My Plugin"
+  version: "1.0.0"
+  author: "your-email@example.com"
+  description: "A sample C++ plugin for ClassTop"
+  homepage: "https://github.com/your-username/your-plugin"
+  language: "cpp"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - read:courses
+  - read:schedules
+  - emit:events
+
+# 如果需要特权 API,取消下面的注释
+# privileged_permissions:
+#   - privileged:management_sync
+
+certificate:
+  required: false  # 开发阶段可设为 false,生产环境应为 true
+  path: "./plugin.crt"
+  # 生成证书后填写指纹
+  # fingerprint: "sha256:abc123..."
+
+ipc:
+  protocol: "grpc"
+  address: "localhost:50052"
+  timeout: 30
+  tls:
+    enabled: false  # 开发阶段可设为 false

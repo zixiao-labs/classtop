@@ -1,0 +1,21 @@
+metadata:
+  id: "com.example.course_statistics"
+  name: "Course Statistics Plugin"
+  version: "1.0.0"
+  author: "ClassTop Team"
+  description: "Analyzes and displays course statistics with data visualization"
+  language: "python"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - read:courses
+  - read:schedules
+  - emit:events
+  - access:settings
+
+frontend:
+  components:
+    - zone: "settings_page"
+      component: "CourseStatisticsSettings"

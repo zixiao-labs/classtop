@@ -1,0 +1,24 @@
+metadata:
+  id: "com.example.performance_monitor"
+  name: "Performance Monitor Plugin"
+  version: "1.0.0"
+  author: "ClassTop Team"
+  description: "Monitors system performance using multi-threading"
+  homepage: "https://github.com/Zixiao-System/classtop"
+  language: "cpp"
+
+dependencies:
+  classtop_version: ">=2.0.0"
+
+permissions:
+  - emit:events
+
+certificate:
+  required: false
+
+ipc:
+  protocol: "grpc"
+  address: "localhost:50053"
+  timeout: 30
+  tls:
+    enabled: false
