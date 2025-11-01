@@ -516,3 +516,69 @@ class ScheduleManager:
             except Exception as e:
                 self.logger.log_message("error", f"Error getting statistics: {e}")
                 return {}
+
+    # Sync Methods for Management Server Integration
+    def get_all_courses(self) -> List[Dict]:
+        """获取所有课程（用于同步）"""
+        self.logger.log_message("debug", "Fetching all courses for sync")
+
+        with self.get_connection() as conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, name, teacher, location, color
+                    FROM courses
+                    ORDER BY id
+                """)
+
+                courses = []
+                for row in cur.fetchall():
+                    courses.append({
+                        "id": row[0],
+                        "name": row[1],
+                        "teacher": row[2] or "",
+                        "location": row[3] or "",
+                        "color": row[4] or "#6750A4"
+                    })
+
+                self.logger.log_message("debug", f"Retrieved {len(courses)} courses for sync")
+                return courses
+            except Exception as e:
+                self.logger.log_message("error", f"Error fetching courses for sync: {e}")
+                return []
+
+    def get_all_schedule_entries(self) -> List[Dict]:
+        """获取所有课程表条目（用于同步）"""
+        self.logger.log_message("debug", "Fetching all schedule entries for sync")
+
+        with self.get_connection() as conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT s.id, s.course_id, s.day_of_week, s.start_time, s.end_time, s.weeks,
+                           c.name, c.teacher, c.location, c.color
+                    FROM schedule s
+                    JOIN courses c ON s.course_id = c.id
+                    ORDER BY s.day_of_week, s.start_time
+                """)
+
+                entries = []
+                for row in cur.fetchall():
+                    entries.append({
+                        "id": row[0],
+                        "course_id": row[1],
+                        "day_of_week": row[2],
+                        "start_time": row[3],
+                        "end_time": row[4],
+                        "weeks": row[5],  # Keep as JSON string
+                        "course_name": row[6],
+                        "teacher": row[7] or "",
+                        "location": row[8] or "",
+                        "color": row[9] or "#6750A4"
+                    })
+
+                self.logger.log_message("debug", f"Retrieved {len(entries)} schedule entries for sync")
+                return entries
+            except Exception as e:
+                self.logger.log_message("error", f"Error fetching schedule entries for sync: {e}")
+                return []

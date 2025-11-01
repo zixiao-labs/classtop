@@ -1098,3 +1098,110 @@ async def import_schedule_data(body: ImportDataRequest) -> ImportDataResponse:
         )
 
 
+# ============= Management Server Sync Commands =============
+
+class SyncResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class TestConnectionResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[Dict] = None
+
+
+@commands.command()
+async def test_server_connection() -> TestConnectionResponse:
+    """测试与 Management Server 的连接"""
+    try:
+        sync_client = _db.schedule_manager.sync_client if hasattr(_db.schedule_manager, 'sync_client') else None
+
+        # 尝试从 __init__.py 的 sync_client 全局变量获取
+        if not sync_client:
+            from . import __init__ as init_module
+            if hasattr(init_module, 'sync_client'):
+                sync_client = init_module.sync_client
+
+        # 如果还是没有，尝试创建一个临时实例
+        if not sync_client:
+            from .sync_client import SyncClient
+            sync_client = SyncClient(_db.settings_manager, _db.schedule_manager)
+
+        result = sync_client.test_connection()
+        return TestConnectionResponse(
+            success=result.get("success", False),
+            message=result.get("message", ""),
+            data=result.get("data")
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Failed to test server connection: {e}")
+        return TestConnectionResponse(
+            success=False,
+            message=f"测试连接失败: {str(e)}"
+        )
+
+
+@commands.command()
+async def sync_now() -> SyncResponse:
+    """立即同步数据到 Management Server"""
+    try:
+        sync_client = _db.schedule_manager.sync_client if hasattr(_db.schedule_manager, 'sync_client') else None
+
+        # 尝试从 __init__.py 的 sync_client 全局变量获取
+        if not sync_client:
+            from . import __init__ as init_module
+            if hasattr(init_module, 'sync_client'):
+                sync_client = init_module.sync_client
+
+        # 如果还是没有，尝试创建一个临时实例
+        if not sync_client:
+            from .sync_client import SyncClient
+            sync_client = SyncClient(_db.settings_manager, _db.schedule_manager)
+
+        success = sync_client.sync_to_server()
+
+        return SyncResponse(
+            success=success,
+            message="同步成功" if success else "同步失败"
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Failed to sync: {e}")
+        return SyncResponse(
+            success=False,
+            message=f"同步失败: {str(e)}"
+        )
+
+
+@commands.command()
+async def register_to_server() -> SyncResponse:
+    """注册客户端到 Management Server"""
+    try:
+        sync_client = _db.schedule_manager.sync_client if hasattr(_db.schedule_manager, 'sync_client') else None
+
+        # 尝试从 __init__.py 的 sync_client 全局变量获取
+        if not sync_client:
+            from . import __init__ as init_module
+            if hasattr(init_module, 'sync_client'):
+                sync_client = init_module.sync_client
+
+        # 如果还是没有，尝试创建一个临时实例
+        if not sync_client:
+            from .sync_client import SyncClient
+            sync_client = SyncClient(_db.settings_manager, _db.schedule_manager)
+
+        success = sync_client.register_client()
+
+        return SyncResponse(
+            success=success,
+            message="注册成功" if success else "注册失败"
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Failed to register: {e}")
+        return SyncResponse(
+            success=False,
+            message=f"注册失败: {str(e)}"
+        )
+
+
+

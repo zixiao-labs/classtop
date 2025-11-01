@@ -86,6 +86,24 @@ def main() -> int:
             except Exception as e:
                 _logger.log_message("error", f"Failed to create WebSocket client: {e}")
 
+            # Initialize sync client for Management Server
+            sync_client = None
+            try:
+                from .sync_client import SyncClient
+
+                sync_client = SyncClient(settings_manager, schedule_manager)
+
+                # 启动时尝试注册并启动自动同步
+                sync_enabled = settings_manager.get_setting("sync_enabled", "false")
+                if sync_enabled.lower() == "true":
+                    sync_client.register_client()
+                    sync_client.start_auto_sync()
+                    _logger.log_message("info", "Sync client initialized and auto-sync started")
+                else:
+                    _logger.log_message("info", "Sync client initialized but auto-sync disabled")
+            except Exception as e:
+                _logger.log_message("error", f"Failed to initialize sync client: {e}")
+
             # Initialize camera manager if enabled (with WebSocket client reference)
             import platform
             camera_enabled = settings_manager.get_setting('camera_enabled')

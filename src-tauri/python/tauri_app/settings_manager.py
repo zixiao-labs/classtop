@@ -15,6 +15,11 @@ class SettingsManager:
         # 通用设置
         'client_uuid': lambda: str(uuid.uuid4()),
         'server_url': '',
+        'client_name': '',  # 客户端名称，默认使用主机名
+
+        # Management Server 同步设置
+        'sync_enabled': 'false',  # 是否启用自动同步
+        'sync_interval': '300',  # 同步间隔（秒），默认 5 分钟
 
         # API 服务器设置
         'api_server_enabled': 'false',  # 是否启用 API 服务器
