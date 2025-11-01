@@ -60,9 +60,11 @@
 - ✅ 立即触发同步
 
 ### 数据同步范围
-- ✅ 所有课程信息（name, teacher, location, color）
-- ✅ 所有课程表条目（day_of_week, start_time, end_time, weeks）
+- ✅ 所有课程信息（id, name, teacher, color, note）
+- ✅ 所有课程表条目（id, course_id, day_of_week, start_time, end_time, weeks）
 - ✅ 客户端元数据（UUID, name, API URL）
+
+> **注意**: `location` 字段目前未包含在同步数据中，因为 Management Server v1.0 暂不支持该字段。
 
 ---
 

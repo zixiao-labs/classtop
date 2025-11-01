@@ -96,18 +96,18 @@ class SyncClient:
                 "client_uuid": client_uuid,
                 "courses": [
                     {
-                        "id_on_client": course["id"],
+                        "id": course["id"],  # 服务器使用 "id" 而不是 "id_on_client"
                         "name": course["name"],
-                        "teacher": course.get("teacher") or "",
-                        "location": course.get("location") or "",
-                        "color": course.get("color") or "#6750A4",
+                        "teacher": course.get("teacher"),
+                        "color": course.get("color"),
+                        "note": course.get("note"),  # 可选字段
                     }
                     for course in courses
                 ],
                 "schedule_entries": [
                     {
-                        "id_on_client": entry["id"],
-                        "course_id_on_client": entry["course_id"],
+                        "id": entry["id"],  # 服务器使用 "id" 而不是 "id_on_client"
+                        "course_id": entry["course_id"],  # 服务器使用 "course_id" 而不是 "course_id_on_client"
                         "day_of_week": entry["day_of_week"],
                         "start_time": entry["start_time"],
                         "end_time": entry["end_time"],
@@ -125,8 +125,9 @@ class SyncClient:
             result = response.json()
             if result.get("success"):
                 sync_info = result.get("data", {})
-                courses_synced = sync_info.get("courses_synced", 0)
-                entries_synced = sync_info.get("schedule_entries_synced", 0)
+                # 服务器返回字段: synced_courses, synced_entries
+                courses_synced = sync_info.get("synced_courses", 0)
+                entries_synced = sync_info.get("synced_entries", 0)
                 self.logger.log_message(
                     "info",
                     f"同步成功: {courses_synced} 门课程, {entries_synced} 个课程表条目",
