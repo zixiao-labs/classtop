@@ -13,6 +13,7 @@ ClassTop is a desktop course management and display tool built with Tauri 2 + Vu
 - System tray integration
 - Automatic/manual week number calculation
 - **Dynamic theme system with MDUI color extraction from GitHub images**
+- **Management Server HTTP sync** (课程数据同步到中央服务器)
 - WebSocket-based remote control via LMS (Light Management Service)
 - Camera monitoring support (Windows only)
 
@@ -233,6 +234,7 @@ Located in `src/TopBar/components/Schedule.vue` and `src/utils/schedule.js`:
 - `db.py`: Raw SQLite operations, connection management
 - `schedule_manager.py`: Business logic for schedule CRUD (uses db.py, emits events)
 - `settings_manager.py`: Manages application settings with defaults
+- `sync_client.py`: HTTP REST API client for Management Server synchronization
 - `api_server.py`: Optional HTTP API server for remote management (FastAPI-based)
 - `events.py`: Thread-safe singleton event handler
 - `tray.py`: System tray menu (show/hide windows, quit)
@@ -247,10 +249,12 @@ Located in `src/TopBar/components/Schedule.vue` and `src/utils/schedule.js`:
 4. Database
 5. Settings manager (initializes defaults)
 6. Schedule manager
-7. WebSocket client (if configured)
-8. Camera manager (if enabled and Windows platform)
-9. API server (if enabled in settings)
-10. System tray
+7. Reminder manager (if enabled)
+8. WebSocket client (if configured)
+9. **Sync client (if enabled, registers and starts auto-sync)**
+10. Camera manager (if enabled and Windows platform)
+11. API server (if enabled in settings)
+12. System tray
 
 **Platform-specific initialization**:
 - Camera manager only initializes on Windows (`platform.system() == "Windows"`)
@@ -325,6 +329,70 @@ Access management interface at `http://localhost:8000`
 3. LMS sends commands via WebSocket
 4. Client responds with execution results
 5. Heartbeat every 30 seconds to maintain connection
+
+### Management Server Integration (NEW)
+
+ClassTop 客户端现已支持与 Management Server 进行 HTTP REST API 同步。
+
+**Location:** `src-tauri/python/tauri_app/sync_client.py`
+
+**Features:**
+- HTTP REST API 数据同步到中央服务器
+- 自动注册客户端到 Management Server
+- 后台自动同步线程（可配置间隔）
+- 手动触发同步操作
+- 线程安全的 UUID 生成和管理
+- 安全的 JSON 数据解析
+
+**Configuration Settings:**
+- `sync_enabled`: "true"/"false" - 启用/禁用自动同步
+- `sync_interval`: "300" - 同步间隔（秒），默认 5 分钟
+- `client_name`: "" - 客户端名称（留空则使用主机名）
+- `server_url`: Management Server URL (e.g., `http://localhost:8765`)
+
+**Python Commands:**
+- `test_server_connection()`: 测试服务器连接（健康检查）
+- `register_to_server()`: 注册客户端到服务器
+- `sync_now()`: 立即同步数据到服务器
+
+**Frontend UI:**
+- Settings.vue 包含完整的同步配置界面
+- 实时状态显示（成功/失败带颜色指示）
+- 三个操作按钮：测试连接、注册客户端、立即同步
+
+**Important - PyTauri Commands:**
+Management Server 命令必须使用 `pyInvoke()` 而非标准 Tauri `invoke()`:
+
+```javascript
+// 正确用法
+import { pyInvoke } from 'tauri-plugin-pytauri-api';
+const result = await pyInvoke('test_server_connection');
+
+// 错误用法（会导致 Command not Found 错误）
+import { invoke } from '@tauri-apps/api/core';
+const result = await invoke('test_server_connection');  // ❌ 不会工作
+```
+
+**Synchronized Data:**
+- 所有课程信息（id, name, teacher, color, note）
+- 所有课程表条目（id, course_id, day_of_week, start_time, end_time, weeks）
+- 客户端元数据（UUID, name, API URL）
+
+**Notes:**
+- `location` 字段目前不同步（Management Server v1.0 暂不支持）
+- API 字段名：使用 `id` 和 `course_id`，而非 `id_on_client` 和 `course_id_on_client`
+- 线程安全：UUID 生成使用 threading.Lock 保护
+- 错误处理：JSON 解析失败时返回空数组而非崩溃
+
+**Initialization:**
+Sync client 在 `__init__.py:main()` 中初始化，如果 `sync_enabled=true` 则自动注册并启动后台同步。
+
+**Documentation:**
+- 集成总结: `INTEGRATION_SUMMARY.md`
+- 快速开始: `docs/QUICK_START_SYNC.md`
+- Management Server: https://github.com/Zixiao-System/Classtop-Management-Server
+
+**Status:** ✅ 已完成并合并到 master (PR #30)
 
 ### API Server (Optional)
 

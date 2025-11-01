@@ -1,9 +1,10 @@
 # ClassTop ⇄ Management Server 集成完成总结
 
-## 🎉 集成状态：已完成并可测试
+## 🎉 集成状态：已完成并合并到主分支
 
 完成日期：2025-11-01
-分支：`integration-management-server`
+PR: #30 (已合并到 master)
+原开发分支：`integration-management-server`
 
 ---
 
@@ -43,6 +44,47 @@
   - `syncNow()` - 异步立即同步
   - 完整的加载状态和错误处理
   - Material Design 风格的反馈提示
+
+---
+
+## 🔄 合并后修复
+
+### PR 合并流程
+1. **PR #30 创建**: 完整的集成实现
+2. **Code Review**: Claude PR Review Bot 提出改进建议
+3. **关键问题修复**:
+   - ✅ JSON 解析安全性（添加 `_parse_weeks()` 错误处理）
+   - ✅ UUID 生成线程安全（添加 threading.Lock）
+   - ✅ 布尔值转换优化（新增 `get_setting_bool()` 和 `set_setting_bool()`）
+   - ✅ URL 验证（前端 `isValidUrl()` 函数，HTTP 安全警告）
+   - ✅ API 字段名兼容性（`id_on_client` → `id`，`course_id_on_client` → `course_id`）
+4. **合并到 master**: 2025-11-01
+5. **合并后修复**: PyTauri 命令调用（`invoke()` → `pyInvoke()`）
+
+### 关键修复：PyTauri 命令调用
+合并后发现命令无法找到的问题，已修复：
+
+**问题**：`Command register_to_server not Found` 等错误
+
+**原因**：PyTauri 命令必须使用 `pyInvoke()` 而非标准 Tauri `invoke()`
+
+**修复** (Settings.vue:1674-1791):
+```javascript
+// 修改前
+import { invoke } from '@tauri-apps/api/core';
+await invoke('test_server_connection');
+
+// 修改后
+import { pyInvoke } from 'tauri-plugin-pytauri-api';
+await pyInvoke('test_server_connection');
+```
+
+**影响的函数**：
+- `testConnection()` - 测试服务器连接
+- `registerClient()` - 注册客户端
+- `syncNow()` - 立即同步
+
+**状态**: ✅ 已修复并推送到 master (commit 7791633)
 
 ---
 
