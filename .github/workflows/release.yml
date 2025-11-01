@@ -65,11 +65,6 @@ jobs:
             librsvg2-dev \
             libfuse2
 
-          # Install linuxdeploy for AppImage bundling
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-          sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
-
       - name: Install frontend dependencies
         run: npm install
 
@@ -109,6 +104,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           PYO3_PYTHON: ${{ github.workspace }}/src-tauri/pyembed/python/${{ matrix.platform == 'windows-latest' && 'python.exe' || 'bin/python3' }}
           RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && format('-L {0}/src-tauri/pyembed/python/libs', github.workspace) || format('-L {0}/src-tauri/pyembed/python/lib', github.workspace) }}
+          APPIMAGE_EXTRACT_AND_RUN: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'ClassTop v__VERSION__'
