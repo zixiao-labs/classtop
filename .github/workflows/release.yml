@@ -90,11 +90,9 @@ jobs:
           tar -xzf python.tar.gz -C src-tauri/pyembed
 
       - name: Install Python dependencies
-        env:
-          PYTHON_PATH: ${{ matrix.platform == 'windows-latest' && './src-tauri/pyembed/python/python.exe' || './src-tauri/pyembed/python/bin/python3' }}
         run: |
           python -m pip install --upgrade pip uv
-          uv pip install --exact --compile-bytecode --python=${{ env.PYTHON_PATH }} --reinstall-package=classtop ./src-tauri
+          uv pip install --system --reinstall-package=classtop ./src-tauri
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
