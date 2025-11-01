@@ -274,7 +274,7 @@ import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, set
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
 import { initThemeFromGitHub } from '../utils/theme';
 import { onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { pyInvoke } from 'tauri-plugin-pytauri-api';
 
 // Reactive state for theme download
 const isDownloadingTheme = ref(false);
@@ -472,7 +472,7 @@ async function testConnection() {
     await saveManagementServerUrl();
 
     // 调用 Python 命令测试连接
-    const result = await invoke('test_server_connection');
+    const result = await pyInvoke('test_server_connection');
 
     syncStatus.value = {
       success: result.success,
@@ -518,7 +518,7 @@ async function registerClient() {
     }
 
     // 调用 Python 命令注册客户端
-    const result = await invoke('register_to_server');
+    const result = await pyInvoke('register_to_server');
 
     syncStatus.value = {
       success: result.success,
@@ -558,7 +558,7 @@ async function syncNow() {
 
   try {
     // 调用 Python 命令同步
-    const result = await invoke('sync_now');
+    const result = await pyInvoke('sync_now');
 
     syncStatus.value = {
       success: result.success,
