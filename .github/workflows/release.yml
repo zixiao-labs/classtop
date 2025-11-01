@@ -82,13 +82,10 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
           ./linuxdeploy-x86_64.AppImage --appimage-extract > /dev/null
 
-          # Create wrapper script
-          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage <<'EOF'
-          #!/bin/bash
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          exec "$SCRIPT_DIR/linuxdeploy-extracted/AppRun" "$@"
-          EOF
-
+          # Create wrapper script using printf
+          printf '#!/bin/bash\n' > ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+          printf 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n' >> ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+          printf 'exec "$SCRIPT_DIR/linuxdeploy-extracted/AppRun" "$@"\n' >> ~/.cache/tauri/linuxdeploy-x86_64.AppImage
           chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
           mv squashfs-root ~/.cache/tauri/linuxdeploy-extracted
           rm -f linuxdeploy-x86_64.AppImage
@@ -98,12 +95,10 @@ jobs:
           chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
           ./linuxdeploy-plugin-appimage-x86_64.AppImage --appimage-extract > /dev/null
 
-          cat > ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage <<'EOF'
-          #!/bin/bash
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          exec "$SCRIPT_DIR/linuxdeploy-plugin-appimage-extracted/AppRun" "$@"
-          EOF
-
+          # Create wrapper script using printf
+          printf '#!/bin/bash\n' > ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage
+          printf 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n' >> ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage
+          printf 'exec "$SCRIPT_DIR/linuxdeploy-plugin-appimage-extracted/AppRun" "$@"\n' >> ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage
           chmod +x ~/.cache/tauri/linuxdeploy-plugin-appimage-x86_64.AppImage
           mv squashfs-root ~/.cache/tauri/linuxdeploy-plugin-appimage-extracted
           rm -f linuxdeploy-plugin-appimage-x86_64.AppImage
