@@ -55,6 +55,23 @@
             <span style="font-family: monospace; font-size: 0.875rem;">{{ settings.theme_color }}</span>
           </div>
         </mdui-list-item>
+        <mdui-list-item icon="image" rounded nonclickable>
+          动态主题
+          <div slot="end-icon" style="display: flex; align-items: center; gap: 8px;">
+            <mdui-button variant="outlined" @click="handleDownloadTheme" :disabled="isDownloadingTheme">
+              {{ isDownloadingTheme ? '下载中...' : '从GitHub随机下载' }}
+            </mdui-button>
+            <span v-if="settings.theme_image_name" style="font-size: 0.75rem; color: var(--mdui-color-on-surface-variant);">
+              {{ settings.theme_image_name }}
+            </span>
+          </div>
+        </mdui-list-item>
+        <mdui-list-item icon="autorenew" rounded>
+          启动时自动更新主题
+          <mdui-switch :checked="settings.auto_theme_download" @change="handleSwitchChange('auto_theme_download', $event)"
+            slot="end-icon">
+          </mdui-switch>
+        </mdui-list-item>
         <mdui-list-item icon="height" rounded nonclickable>
           顶栏高度
           <mdui-slider min="0" max="8" step="0.1" :value="settings.topbar_height" id="topbar-height-slider"
@@ -187,7 +204,11 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, setThemeMode, applyColorScheme } from '../utils/globalVars';
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
-import { onMounted } from 'vue';
+import { initThemeFromGitHub } from '../utils/theme';
+import { onMounted, ref } from 'vue';
+
+// Reactive state for theme download
+const isDownloadingTheme = ref(false);
 
 // 控制模式切换处理（触摸/鼠标）
 async function handleControlModeChange(event) {
@@ -233,7 +254,40 @@ async function handleThemeModeChange(event) {
 async function handleColorChange(event) {
   settings.theme_color = event.target.value;
   await saveSetting('theme_color', settings.theme_color);
+  applyColorScheme(settings.theme_color);
   snackbar({ message: '主题颜色已更新', placement: 'top' });
+}
+
+// 从GitHub下载动态主题
+async function handleDownloadTheme() {
+  isDownloadingTheme.value = true;
+  try {
+    const result = await initThemeFromGitHub();
+
+    if (result.success) {
+      // Update settings with new theme info
+      settings.theme_color = result.color;
+      settings.theme_image_name = result.imageName;
+
+      snackbar({
+        message: `主题已更新！来自图片: ${result.imageName}`,
+        placement: 'top'
+      });
+    } else {
+      snackbar({
+        message: `主题更新失败: ${result.message}`,
+        placement: 'top'
+      });
+    }
+  } catch (error) {
+    console.error('Failed to download theme:', error);
+    snackbar({
+      message: `主题更新失败: ${error.message}`,
+      placement: 'top'
+    });
+  } finally {
+    isDownloadingTheme.value = false;
+  }
 }
 
 // 字体大小调整

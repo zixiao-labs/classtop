@@ -12,6 +12,7 @@ ClassTop is a desktop course management and display tool built with Tauri 2 + Vu
 - SQLite-based data persistence
 - System tray integration
 - Automatic/manual week number calculation
+- **Dynamic theme system with MDUI color extraction from GitHub images**
 - WebSocket-based remote control via LMS (Light Management Service)
 - Camera monitoring support (Windows only)
 
@@ -175,6 +176,40 @@ Week calculation logic in `db.py:get_calculated_week_number()` - prioritizes sem
 **Calculation**: `floor((today - start_date).days / 7) + 1`
 
 **Edge cases**: When semester_start_date is cleared, falls back to manual week (default 1)
+
+### Dynamic Theme System
+
+ClassTop features a dynamic color scheme system powered by MDUI 2.1.4's `getColorFromImage()` and `setColorScheme()` functions.
+
+**Location:** Reference images in `color_ref/` folder (checked into Git)
+
+**Flow:**
+1. Python backend (`commands.py:download_random_theme_image()`) downloads random image from GitHub `color_ref/` folder
+2. Frontend (`src/utils/theme.js`) receives base64-encoded image
+3. MDUI's `getColorFromImage()` extracts dominant color from image
+4. `setColorScheme()` applies Material Design 3 color scheme based on extracted color
+5. Theme color saved to config (`theme_color`, `theme_image_name`)
+
+**Settings:**
+- `theme_color`: Current theme color (hex format)
+- `theme_image_name`: Name of source image used for theme
+- `auto_theme_download`: Enable/disable automatic theme download on startup (default: true)
+
+**User Controls** (Settings page):
+- Manual color picker for custom colors
+- "从GitHub随机下载" button to fetch new theme
+- "启动时自动更新主题" toggle for automatic updates
+
+**Startup Behavior:**
+- If `auto_theme_download=true` and no saved theme: Download from GitHub
+- If saved theme exists: Apply saved theme color
+- Falls back silently if network unavailable
+
+**Implementation Files:**
+- Backend: `src-tauri/python/tauri_app/commands.py` (download_random_theme_image command)
+- Frontend: `src/utils/theme.js` (theme initialization and management)
+- UI: `src/pages/Settings.vue` (theme settings section)
+- Initialization: `src/App.vue` (calls initThemeOnStartup on mount)
 
 ### Schedule Display Logic
 
