@@ -71,19 +71,48 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Test AppImage environment (Ubuntu)
+      - name: Setup AppImage tools (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          # Download a small AppImage to test if extraction works
-          wget https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage -O test-appimage
-          chmod +x test-appimage
+          mkdir -p ~/.local/bin
 
-          # Test with APPIMAGE_EXTRACT_AND_RUN
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          ./test-appimage --version || echo "AppImage execution failed with APPIMAGE_EXTRACT_AND_RUN"
+          # Download and extract linuxdeploy
+          wget -q https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appimage-extract > /dev/null
+          mv squashfs-root ~/.local/linuxdeploy-extracted
 
-          # Clean up
-          rm -f test-appimage
+          # Create wrapper
+          echo '#!/bin/bash' > ~/.local/bin/linuxdeploy
+          echo 'exec ~/.local/linuxdeploy-extracted/AppRun "$@"' >> ~/.local/bin/linuxdeploy
+          chmod +x ~/.local/bin/linuxdeploy
+
+          # Download and extract linuxdeploy-plugin-appimage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-appimage-x86_64.AppImage
+          ./linuxdeploy-plugin-appimage-x86_64.AppImage --appimage-extract > /dev/null
+          mv squashfs-root ~/.local/linuxdeploy-plugin-appimage-extracted
+
+          # Create wrapper
+          echo '#!/bin/bash' > ~/.local/bin/linuxdeploy-plugin-appimage
+          echo 'exec ~/.local/linuxdeploy-plugin-appimage-extracted/AppRun "$@"' >> ~/.local/bin/linuxdeploy-plugin-appimage
+          chmod +x ~/.local/bin/linuxdeploy-plugin-appimage
+
+          # Download shell plugins
+          wget -q -O ~/.local/bin/linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+          chmod +x ~/.local/bin/linuxdeploy-plugin-gtk.sh
+
+          wget -q -O ~/.local/bin/linuxdeploy-plugin-gstreamer.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh
+          chmod +x ~/.local/bin/linuxdeploy-plugin-gstreamer.sh
+
+          # Add to PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+          # Cleanup
+          rm -f linuxdeploy-x86_64.AppImage linuxdeploy-plugin-appimage-x86_64.AppImage
+
+          # Verify
+          ~/.local/bin/linuxdeploy --version
 
       - name: Download Python standalone (Windows)
         if: matrix.platform == 'windows-latest'
@@ -121,9 +150,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           PYO3_PYTHON: ${{ github.workspace }}/src-tauri/pyembed/python/${{ matrix.platform == 'windows-latest' && 'python.exe' || 'bin/python3' }}
           RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && format('-L {0}/src-tauri/pyembed/python/libs', github.workspace) || format('-L {0}/src-tauri/pyembed/python/lib', github.workspace) }}
-          APPIMAGE_EXTRACT_AND_RUN: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
-          RUST_BACKTRACE: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
-          RUST_LOG: ${{ matrix.platform == 'ubuntu-22.04' && 'debug' || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'ClassTop v__VERSION__'
