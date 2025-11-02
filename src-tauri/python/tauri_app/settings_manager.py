@@ -36,6 +36,7 @@ class SettingsManager:
         # 组件设置
         'show_clock': 'true',
         'show_schedule': 'true',
+        'show_sync_status': 'true',  # 是否在顶栏显示同步状态
 
         # 课程设置
         'semester_start_date': '',
