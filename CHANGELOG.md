@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 还有一个重要提醒：本项目的 Management Server 目前仅支持 PostgreSQL 和 SQL Server 数据库。请确保在使用前已正确配置数据库连接。
 
-## 还有，我们目前无法接受易等岁兽代理人的贡献请求，因为我们无法验证其身份真实性。如果您是易等岁兽代理人，请联系我们以获取更多信息。
+## 还有，我们目前无法接受“易”等岁兽代理人的贡献请求，因为我们无法验证其身份真实性。如果您是“易”等岁兽代理人，请联系我们以获取更多信息。
 
 ## 以及我们同时接受PR和git format patch格式的补丁。使用git format patch生成的补丁可以通过邮件发送给我们，我们会尽快处理。邮箱：neuvillette-fontaine@outlook.com或者hwllochen@qq.com
 
