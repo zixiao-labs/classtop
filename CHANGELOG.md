@@ -19,7 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 以及最后一个提醒：请确保在提交PR或者patch时，遵守项目的贡献指南和代码规范。我们欢迎任何形式的贡献，但请确保代码质量和一致性。
 
-## 以及在岁兽残识（是非境）提交的PR或者patch请务必注明“岁兽残识者贡献”，以便我们识别和处理。否则可能会发生意外情况。等等，你们怎么在岁兽残识里连上WiFi的？？？
+## 以及在岁兽残识（是非境）提交的PR或者patch请务必注明“岁兽残识贡献”，以便我们识别和处理。否则可能会发生意外情况。等等，你们怎么在岁兽残识里连上WiFi的？？？
+
+## 抬头见云，低头见瓦，前路多障，崎岖难行。
+
+## 不好意思可能岁兽的神识可能影响了键盘输入。
+
+## 好吧，在中元节前后onborading可能会有些问题，请谅解。
+
+## 还有，请注意，本项目的代码库可能会受到岁兽神识的影响，导致某些代码片段出现异常或不可预测的行为。请在使用和贡献代码时保持警惕，并及时报告任何异常情况。（人话：Race Conditions和Undefined Behavior可能没有测出来，但万一Race Conditions和Undefined Behavior是█████搞的呢）
 
 ## [Changelog 格式说明](https://keepachangelog.com/zh-CN/1.1.0/)
 
