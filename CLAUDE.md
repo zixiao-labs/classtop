@@ -115,8 +115,9 @@ The application uses Tauri's multi-window feature with distinct purposes:
 
 1. **TopBar Window** (`/#/topbar`):
    - Always-on-top, transparent, borderless window
-   - Displays Clock.vue (left) + Schedule.vue (right)
+   - Displays Clock.vue (left) + Schedule.vue (right) + Sync Status (right, optional)
    - Updates every second for progress, every 10s for data refresh
+   - Sync status checked every 30 seconds when enabled
    - Configuration: `src-tauri/tauri.conf.json` lines 14-41
    - Has `closable: false` to prevent accidental closure
 
@@ -349,16 +350,23 @@ ClassTop 客户端现已支持与 Management Server 进行 HTTP REST API 同步�
 - `sync_interval`: "300" - 同步间隔（秒），默认 5 分钟
 - `client_name`: "" - 客户端名称（留空则使用主机名）
 - `server_url`: Management Server URL (e.g., `http://localhost:8765`)
+- `show_sync_status`: "true"/"false" - 是否在顶栏显示同步状态图标（默认启用）
 
 **Python Commands:**
 - `test_server_connection()`: 测试服务器连接（健康检查）
 - `register_to_server()`: 注册客户端到服务器
 - `sync_now()`: 立即同步数据到服务器
+- `get_sync_status()`: 获取当前同步状态（用于顶栏显示）
 
 **Frontend UI:**
 - Settings.vue 包含完整的同步配置界面
 - 实时状态显示（成功/失败带颜色指示）
 - 三个操作按钮：测试连接、注册客户端、立即同步
+- **TopBar.vue 显示连接状态图标**：
+  - 绿色 `cloud_done` 图标：已连接到 Management Server
+  - 红色 `cloud_off` 图标：未连接或同步已禁用
+  - 鼠标悬停显示详细信息（服务器地址、连接状态）
+  - 可通过设置中的"组件显示 > 同步状态"开关控制显示
 
 **Important - PyTauri Commands:**
 Management Server 命令必须使用 `pyInvoke()` 而非标准 Tauri `invoke()`:
