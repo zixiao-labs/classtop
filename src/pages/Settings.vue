@@ -172,6 +172,12 @@
             slot="end-icon">
           </mdui-switch>
         </mdui-list-item>
+        <mdui-list-item icon="cloud_sync" rounded>
+          同步状态
+          <mdui-switch :checked="settings.show_sync_status" @change="handleSwitchChange('show_sync_status', $event)"
+            slot="end-icon">
+          </mdui-switch>
+        </mdui-list-item>
       </mdui-list>
     </mdui-card>
 

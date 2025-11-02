@@ -1187,4 +1187,39 @@ async def register_to_server() -> SyncResponse:
         )
 
 
+class SyncStatusResponse(BaseModel):
+    enabled: bool
+    connected: bool
+    server_url: str
+    last_sync_time: Optional[str] = None
+
+
+@commands.command()
+async def get_sync_status() -> SyncStatusResponse:
+    """获取 Management Server 同步状态"""
+    try:
+        sync_enabled = _db.settings_manager.get_setting_bool("sync_enabled", False)
+        server_url = _db.settings_manager.get_setting("server_url", "")
+
+        # 检查连接状态
+        connected = False
+        if sync_enabled and server_url and _db.sync_client:
+            result = _db.sync_client.test_connection()
+            connected = result.get("success", False)
+
+        return SyncStatusResponse(
+            enabled=sync_enabled,
+            connected=connected,
+            server_url=server_url,
+            last_sync_time=None  # 可以后续添加最后同步时间的跟踪
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Failed to get sync status: {e}")
+        return SyncStatusResponse(
+            enabled=False,
+            connected=False,
+            server_url=""
+        )
+
+
 
