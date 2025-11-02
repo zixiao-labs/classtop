@@ -107,7 +107,7 @@
 1. **Fork 仓库**
    ```bash
    # 在 GitHub 上点击 Fork 按钮
-   git clone https://github.com/YOUR_USERNAME/classtop.git
+   git clone https://github.com/Zixiao-System/classtop.git
    cd classtop
    ```
 
@@ -485,5 +485,9 @@ Contributors will be automatically added here
 **再次感谢您的贡献！让我们一起让 ClassTop 变得更好！** ❤️
 
 *Made with ❤️ by Classtop Team*
+
+Tip：@lihuowang17提交的时候建议加上“~~我是心素~~”
+
+等等，为啥Terminal自己在用vim？还自己commit了，难道又是岁兽神识干扰键盘输入，所以别加班，加班久了，小心身后的█████，以及岁兽神识的影响更大
 
 （P.S：也请不要同时提起华莱士，蜜雪冰城，依维柯，防止…啊，博士，我要吐了）
