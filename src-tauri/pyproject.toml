@@ -1,5 +1,5 @@
 [project]
-name = "classtop"  
+name = "classtop"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.9"
@@ -20,7 +20,16 @@ dependencies = [
     "pycaw",
     "comtypes",
     "requests",  # For Management Server sync
-]  
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest >= 8.0.0",
+    "pytest-asyncio >= 0.23.0",
+    "pytest-cov >= 4.1.0",
+    "pytest-mock >= 3.12.0",
+    "httpx >= 0.26.0",  # For testing FastAPI
+]
 
 [project.entry-points.pytauri]
 ext_mod = "classtop.ext_mod"
@@ -31,3 +40,45 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages]
 find = { where = ["python"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=tauri_app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow-running tests",
+    "windows_only: Tests that only run on Windows",
+]
+
+[tool.coverage.run]
+source = ["python/tauri_app"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
