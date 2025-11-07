@@ -37,6 +37,8 @@ tauri-plugin-pytauri = { version = "0.8" }
 tauri-plugin-clipboard-manager = "2"
 
 # Force update glib to fix security vulnerability GHSA-wrw7-89jp-8q8g
+# Only needed on Linux platforms (GTK/WebKit dependency)
+[target.'cfg(target_os = "linux")'.dependencies]
 glib = { version = "0.20" }
 
 [profile.bundle-dev]
