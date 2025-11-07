@@ -36,6 +36,9 @@ pytauri = { version = "0.8" }
 tauri-plugin-pytauri = { version = "0.8" }
 tauri-plugin-clipboard-manager = "2"
 
+# Force update glib to fix security vulnerability GHSA-wrw7-89jp-8q8g
+glib = { version = "0.20" }
+
 [profile.bundle-dev]
 inherits = "dev"
 
