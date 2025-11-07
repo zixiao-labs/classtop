@@ -4,6 +4,7 @@ Manages all event emissions to the frontend in a thread-safe manner.
 """
 
 import asyncio
+import json
 import threading
 from typing import Optional, Any, Dict
 from datetime import datetime
@@ -204,7 +205,7 @@ class EventHandler:
             return
 
         try:
-            Emitter.emit_str(self._app_handle, event_name, str(payload))
+            Emitter.emit_str(self._app_handle, event_name, json.dumps(payload))
             logger.log_message("debug", f"Custom event emitted: {event_name}")
         except Exception as e:
             logger.log_message("error", f"Failed to emit custom event: {e}")

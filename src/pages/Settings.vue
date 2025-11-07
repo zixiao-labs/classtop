@@ -222,7 +222,7 @@
             slot="end-icon">
           </mdui-switch>
         </mdui-list-item>
-        <mdui-list-item icon="schedule" rounded nonclickable :disabled="settings.reminder_enabled !== 'true'">
+        <mdui-list-item icon="schedule" rounded nonclickable :disabled="!settings.reminder_enabled">
           提前提醒时间
           <mdui-segmented-button-group selects="single" :value="settings.reminder_minutes || '10'"
             @change="handleReminderTimeChange" slot="end-icon">
@@ -232,7 +232,7 @@
             <mdui-segmented-button value="30">30分钟</mdui-segmented-button>
           </mdui-segmented-button-group>
         </mdui-list-item>
-        <mdui-list-item icon="volume_up" rounded :disabled="settings.reminder_enabled !== 'true'">
+        <mdui-list-item icon="volume_up" rounded :disabled="!settings.reminder_enabled">
           提示音
           <mdui-switch :checked="settings.reminder_sound" @change="handleSwitchChange('reminder_sound', $event)"
             slot="end-icon">

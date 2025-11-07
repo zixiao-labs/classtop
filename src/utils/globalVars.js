@@ -26,11 +26,23 @@ export const settings = reactive({
   // 组件设置
   show_clock: true,
   show_schedule: true,
+  show_sync_status: true,
+
   // 监控（摄像头）设置
   camera_enabled: false,
 
   // 课程设置
   semester_start_date: '',
+
+  // 课程提醒设置
+  reminder_enabled: false,
+  reminder_minutes: '10',
+  reminder_sound: false,
+
+  // 同步设置
+  sync_enabled: 'false',
+  sync_interval: '300',
+  client_name: '',
 
   // 动态计算的值（不持久化）
   current_week: 1,
@@ -68,11 +80,23 @@ export async function loadSettings() {
     settings.font_size = allSettings.font_size || '16';
     settings.show_clock = allSettings.show_clock === 'true';
     settings.show_schedule = allSettings.show_schedule === 'true';
-  // camera_enabled 存储为 'true'/'false'
-  settings.camera_enabled = allSettings.camera_enabled === 'true';
+    settings.show_sync_status = allSettings.show_sync_status === 'true';
+    // camera_enabled 存储为 'true'/'false'
+    settings.camera_enabled = allSettings.camera_enabled === 'true';
     // control_mode 存储为字符串 'touch' 或 'mouse'
     settings.control_mode = allSettings.control_mode || 'touch';
     settings.semester_start_date = allSettings.semester_start_date || '';
+
+    // 课程提醒设置（转换为布尔值以保持一致性）
+    settings.reminder_enabled = allSettings.reminder_enabled === 'true';
+    settings.reminder_minutes = allSettings.reminder_minutes || '10';
+    settings.reminder_sound = allSettings.reminder_sound === 'true';
+
+    // 同步设置
+    settings.sync_enabled = allSettings.sync_enabled || 'false';
+    settings.sync_interval = allSettings.sync_interval || '300';
+    settings.client_name = allSettings.client_name || '';
+
     settings.loaded = true;
 
     // 动态计算当前周数
