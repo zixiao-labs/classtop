@@ -4,665 +4,479 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ClassTop is a desktop course management and display tool built with Tauri 2 + Vue 3 + PyTauri. It provides an always-on-top progress bar showing current/next classes and a full-featured management interface.
-
-**Key Features:**
-- Real-time course progress display with always-on-top transparent window
-- Full course schedule CRUD operations
-- SQLite-based data persistence
-- System tray integration
-- Automatic/manual week number calculation
-- **Dynamic theme system with MDUI color extraction from GitHub images**
-- **Management Server HTTP sync** (课程数据同步到中央服务器)
-- WebSocket-based remote control via LMS (Light Management Service)
-- Camera monitoring support (Windows only)
-
-## Tech Stack
-
-**Frontend:**
-- Vue 3 (Composition API) + Vue Router 4
-- Vite 6 as build tool
-- MDUI 2.1.4 (Material Design components)
-- Less for styling
-
-**Backend:**
-- Tauri 2 framework (Rust)
-- PyTauri 0.8 for Python-Rust integration
-- Python 3.10+ backend logic
-- SQLite database
-
-## Application Icons
-
-The application uses icons located in the following directories:
-
-**Source Icon:**
-- `icons/Icon-iOS-Default-1024x1024@1x.png` - 1024x1024 source image
-
-**Application Icons** (located in `src-tauri/icons/`):
-- PNG icons: 32x32.png, 128x128.png, 128x128@2x.png (256x256), icon.png (512x512)
-- macOS icon: icon.icns (multi-resolution bundle)
-- Windows icon: icon.ico (multi-resolution bundle)
-- Windows Store icons: Square30x30Logo.png through Square310x310Logo.png, StoreLogo.png
-
-**Icon Configuration:**
-Icons are configured in `src-tauri/tauri.bundle.json` under the `bundle.icon` array. All icons are automatically generated from the source PNG using platform-specific tools (sips for PNG/ICNS on macOS, ImageMagick for ICO files).
+ClassTop is a desktop class schedule manager and display tool built with Tauri 2 + Vue 3 + PyTauri. It features:
+- **TopBar**: An always-on-top progress bar showing current class schedule and progress
+- **Management UI**: Full-featured schedule management interface
+- **Dual Architecture**: Rust (Tauri) + Python (backend logic) + Vue 3 (frontend)
 
 ## Development Commands
 
-### Development Mode
+### Environment Setup
+
 ```bash
+# Install Node.js dependencies
+npm install
+
+# Create Python virtual environment
+uv venv --python-preference only-system
+
+# Activate virtual environment (Windows PowerShell)
+& .venv/Scripts/Activate.ps1
+
+# Activate virtual environment (macOS/Linux)
+source .venv/bin/activate
+
+# Install Python dependencies
+uv pip install -e src-tauri
+```
+
+### Development
+
+```bash
+# Run development mode (opens TopBar and Main window)
 npm run tauri dev
+
+# This starts Vite dev server on port 1420 and launches Tauri
 ```
-This starts both windows:
-- **main** window (1200x800): Course management interface at `/#/`
-- **topbar** window (1400x50): Always-on-top progress bar at `/#/topbar`
 
-**Note**: Frontend hot reloads automatically, but Python changes require restarting `npm run tauri dev`
+### Building
 
-### Build for Production
-
-**Prerequisites**: Download CPython to `src-tauri/pyembed` following [PyTauri Build Standalone Binary](https://pytauri.github.io/pytauri/latest/usage/tutorial/build-standalone/)
-
-**Windows**:
-```powershell
+```bash
+# Build production bundle (Windows)
 ./Build.ps1
+
+# Build production bundle (macOS/Linux)
+./build.sh
+
+# IMPORTANT: Before building, download CPython to src-tauri/pyembed
+# See: https://pytauri.github.io/pytauri/latest/usage/tutorial/build-standalone/
 ```
 
-**Manual build**:
-```bash
-# Set Python path
-export PYO3_PYTHON="./src-tauri/pyembed/python/python.exe"  # Windows
-# or
-export PYO3_PYTHON="./src-tauri/pyembed/python/bin/python3"  # Linux/macOS
-
-# Install Python package
-uv pip install --exact --python="$PYO3_PYTHON" --reinstall-package=classtop ./src-tauri
-
-# Build Tauri app
-npm run -- tauri build --config="src-tauri/tauri.bundle.json" -- --profile bundle-release
-```
-
-Build artifacts located at `src-tauri/target/bundle-release/`
-
-### Code Quality Checks
+### Testing
 
 ```bash
-# Rust formatting check
-cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
+# Run Python tests
+cd src-tauri
+pytest
 
-# Rust linting (strict mode)
-cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+# Run tests with coverage
+pytest --cov=tauri_app --cov-report=html
 
-# Rust build verification
-cargo build --manifest-path=src-tauri/Cargo.toml --release --features pytauri/standalone
-```
+# Run specific test
+pytest tests/test_schedule_manager.py -v
 
-### Frontend Only Development
-```bash
-npm run dev        # Start Vite dev server on port 1420
-npm run build      # Build frontend to dist/
-```
+# Run unit tests only
+pytest -m unit
 
-### Dependencies
-```bash
-npm install        # Install Node.js dependencies (no package-lock.json by design)
+# Run integration tests
+pytest -m integration
 ```
 
 ## Architecture
 
-### Dual-Window System
-The application uses Tauri's multi-window feature with distinct purposes:
+### Dual-Window Architecture
 
-1. **TopBar Window** (`/#/topbar`):
-   - Always-on-top, transparent, borderless window
-   - Displays Clock.vue (left) + Schedule.vue (right) + Sync Status (right, optional)
-   - Updates every second for progress, every 10s for data refresh
-   - Sync status checked every 30 seconds when enabled
-   - Configuration: `src-tauri/tauri.conf.json` lines 14-41
-   - Has `closable: false` to prevent accidental closure
+ClassTop runs two Tauri windows simultaneously:
 
-2. **Main Window** (`/#/`):
-   - Standard window with navigation
-   - Routes: Home, SchedulePage, Settings
-   - Uses Main.vue wrapper component
-   - Starts hidden (`visible: false`), shown by system tray
+1. **TopBar Window** (`/#/topbar`)
+   - Always-on-top, transparent, frameless window
+   - Displays current class progress and countdown
+   - Cannot be closed directly (use tray menu)
+   - Located at: `src/TopBar/TopBar.vue`
 
-### Python-Rust Communication Flow
+2. **Main Window** (`/`)
+   - Full management interface with navigation
+   - Three pages: Home, Schedule Management, Settings
+   - Can be minimized to system tray
+   - Entry point: `src/Main.vue`
 
-```
-Vue Frontend
-  ↓ pyInvoke('command_name', params)
-Python Commands (commands.py)
-  ↓ uses
-Database Layer (db.py) + Managers (schedule_manager.py, settings_manager.py)
-  ↓ emits events via
-Event Handler (events.py)
-  ↓ Emitter.emit()
-Vue Frontend receives events
+### Frontend-Backend Communication
+
+**Frontend → Python Backend:**
+```javascript
+import { pyInvoke } from 'tauri-plugin-pytauri-api';
+
+// Call Python command
+const result = await pyInvoke('command_name', { param: value });
 ```
 
-**Key Pattern:** All Python commands are registered via `@commands.command()` decorator in `commands.py`. Frontend calls them using `pyInvoke()` from `tauri-plugin-pytauri-api`. `pyInvoke()` is async - always await the call.
+**Python Commands Definition:**
+- Located in: `src-tauri/python/tauri_app/commands.py`
+- Use `@commands.command()` decorator
+- Request/response use Pydantic models
+- Commands are registered automatically via PyTauri
 
-### Database Schema
+**Real-time Updates (Python → Frontend):**
+```python
+# In Python
+from .events import emit_schedule_updated
+emit_schedule_updated()
 
-SQLite database at runtime: `classtop.db` (location in Tauri's app data directory; check logs for exact path)
+# In Vue
+import { listen } from '@tauri-apps/api/event';
+listen('schedule-updated', (event) => { /* handle */ });
+```
 
-**Tables:**
-- `courses`: Course information (id, name, teacher, location, color)
-- `schedule`: Schedule entries (id, course_id, day_of_week, start_time, end_time, weeks as JSON)
-  - `day_of_week`: ISO format (1=Monday, 7=Sunday)
-  - `weeks`: JSON array like `[1,2,3,...]` indicating which weeks this entry applies
-- `config`: Key-value configuration store
+### Data Flow Architecture
 
-### Event System
+```
+Vue Components (src/pages/*)
+    ↓ pyInvoke
+Python Commands (src-tauri/python/tauri_app/commands.py)
+    ↓ calls
+Manager Classes (schedule_manager.py, settings_manager.py, etc.)
+    ↓ operates on
+SQLite Database (~/.classtop/classtop.db)
+    ↓ emits
+Event System (events.py)
+    ↑ listens
+Vue Components (update UI)
+```
 
-The application uses a singleton `EventHandler` (`events.py`) for real-time updates:
+### Python Backend Modules
 
-- **Thread-safe:** Uses async portal for cross-thread event emission
-- **Events emitted:**
-  - `schedule-update`: When courses/schedules change (types: course_added, course_updated, course_deleted, schedule_added, schedule_deleted)
-  - `setting-update`: When single setting changes
-  - `settings-batch-update`: When multiple settings update
+Located in `src-tauri/python/tauri_app/`:
 
-Frontend components listen via Tauri event listeners to auto-refresh data.
+- **commands.py**: Command handlers (API between frontend and Python)
+- **db.py**: Database initialization and connection management
+- **schedule_manager.py**: Course schedule CRUD operations
+- **settings_manager.py**: Application settings management with defaults
+- **events.py**: Event system for real-time UI updates
+- **sync_client.py**: Management Server synchronization
+- **camera_manager.py**: Camera recording functionality
+- **audio_manager/**: Real-time audio monitoring with Channel API
+- **tray.py**: System tray integration
+- **logger.py**: Logging infrastructure
+
+### Frontend Structure
+
+Located in `src/`:
+
+- **Main.vue**: Main window with router and navigation
+- **TopBar/TopBar.vue**: Always-on-top schedule display
+  - **components/Clock.vue**: Current time display
+  - **components/Schedule.vue**: Class progress and countdown
+- **pages/**: Application pages
+  - **Home.vue**: Welcome screen
+  - **SchedulePage.vue**: Course management interface
+  - **Settings.vue**: Settings and configuration
+  - **AudioMonitor.vue**: Audio monitoring interface
+- **utils/**: Shared utilities
+  - **schedule.js**: Schedule-related API calls and utilities
+  - **config.js**: Settings API wrappers
+  - **globalVars.js**: Reactive global state (settings, current week)
+  - **collapse.js**: TopBar collapse/expand control
+  - **theme.js**: Theme management
+  - **notifications.js**: Desktop notifications
+
+## Key Technical Details
 
 ### Week Number Calculation
 
-Two modes (managed by `settings_manager.py`):
+ClassTop uses ISO weekday format (1=Monday, 7=Sunday) throughout the codebase.
 
-1. **Automatic (preferred):** Set `semester_start_date` in config, calculates current week from today's date
-2. **Manual (deprecated):** Directly set `current_week` config value
+**Two modes:**
+1. **Automatic**: Set `semester_start_date` (YYYY-MM-DD), week calculated from current date
+2. **Manual** (deprecated): Directly set week number in database
 
-Week calculation logic in `db.py:get_calculated_week_number()` - prioritizes semester_start_date if present.
-
-**Calculation**: `floor((today - start_date).days / 7) + 1`
-
-**Edge cases**: When semester_start_date is cleared, falls back to manual week (default 1)
-
-### Dynamic Theme System
-
-ClassTop features a dynamic color scheme system powered by MDUI 2.1.4's `getColorFromImage()` and `setColorScheme()` functions.
-
-**Location:** Reference images in `color_ref/` folder (checked into Git)
-
-**Flow:**
-1. Python backend (`commands.py:download_random_theme_image()`) downloads random image from GitHub `color_ref/` folder
-2. Frontend (`src/utils/theme.js`) receives base64-encoded image
-3. MDUI's `getColorFromImage()` extracts dominant color from image
-4. `setColorScheme()` applies Material Design 3 color scheme based on extracted color
-5. Theme color saved to config (`theme_color`, `theme_image_name`)
-
-**Settings:**
-- `theme_color`: Current theme color (hex format)
-- `theme_image_name`: Name of source image used for theme
-- `auto_theme_download`: Enable/disable automatic theme download on startup (default: true)
-
-**User Controls** (Settings page):
-- Manual color picker for custom colors
-- "从GitHub随机下载" button to fetch new theme
-- "启动时自动更新主题" toggle for automatic updates
-
-**Startup Behavior:**
-- If `auto_theme_download=true` and no saved theme: Download from GitHub
-- If saved theme exists: Apply saved theme color
-- Falls back silently if network unavailable
-
-**Implementation Files:**
-- Backend: `src-tauri/python/tauri_app/commands.py` (download_random_theme_image command)
-- Frontend: `src/utils/theme.js` (theme initialization and management)
-- UI: `src/pages/Settings.vue` (theme settings section)
-- Initialization: `src/App.vue` (calls initThemeOnStartup on mount)
-
-### Schedule Display Logic
-
-Located in `src/TopBar/components/Schedule.vue` and `src/utils/schedule.js`:
-
-**States:**
-1. **During class:** Shows course name, location, time range, progress bar (0-100%)
-2. **Break time:** Shows "Next: [course]" with countdown timer
-3. **Day ended:** Shows tomorrow's first class
-
-**Important:** Uses `getScheduleForWeek()` to fetch entire week, then client-side calculates current/next class. This avoids deprecated server-side `get_current_class()` endpoints.
-
-**Cross-day logic:** `findNextClassAcrossWeek()` in `schedule.js` handles next-day lookup when today's classes are over.
-
-### Python Module Structure
-
-`src-tauri/python/tauri_app/`:
-
-- `__init__.py`: Application entry point, initializes all managers and event system
-- `commands.py`: Pydantic-based command definitions for frontend-backend interface
-- `db.py`: Raw SQLite operations, connection management
-- `schedule_manager.py`: Business logic for schedule CRUD (uses db.py, emits events)
-- `settings_manager.py`: Manages application settings with defaults
-- `sync_client.py`: HTTP REST API client for Management Server synchronization
-- `api_server.py`: Optional HTTP API server for remote management (FastAPI-based)
-- `events.py`: Thread-safe singleton event handler
-- `tray.py`: System tray menu (show/hide windows, quit)
-- `logger.py`: Logging utilities with file rotation (accessible via `get_logs` command, max 200 lines default)
-- `websocket_client.py`: WebSocket client for connecting to LMS
-- `camera_manager.py`: Camera monitoring manager (Windows only)
-
-**Initialization order** (in `__init__.py:main()`):
-1. Logger
-2. Async portal (for thread-safe async operations)
-3. Event handler
-4. Database
-5. Settings manager (initializes defaults)
-6. Schedule manager
-7. Reminder manager (if enabled)
-8. WebSocket client (if configured)
-9. **Sync client (if enabled, registers and starts auto-sync)**
-10. Camera manager (if enabled and Windows platform)
-11. API server (if enabled in settings)
-12. System tray
-
-**Platform-specific initialization**:
-- Camera manager only initializes on Windows (`platform.system() == "Windows"`)
-- Import of `camera_manager` is delayed until runtime to avoid import errors on non-Windows platforms
-
-### Frontend Module Structure
-
-`src/`:
-
-- `main.js`: App entry, router setup, MDUI import
-- `App.vue`: Root component
-- `Main.vue`: Layout wrapper for main window (navigation + router-view)
-- `TopBar/TopBar.vue`: TopBar window root
-- `TopBar/components/Clock.vue`: Time display
-- `TopBar/components/Schedule.vue`: Course progress/countdown logic
-- `pages/Home.vue`: Welcome page
-- `pages/SchedulePage.vue`: Full course schedule management
-- `pages/Settings.vue`: Week/semester settings
-- `utils/schedule.js`: Shared utilities for time calculations, API calls (pyInvoke wrappers)
-- `utils/globalVars.js`: Global reactive variable management
-- `utils/collapse.js`: TopBar collapse control
-- `utils/config.js`: Settings operation interface
-- `router/index.js`: Route definitions
-
-**Important**: MDUI components use custom elements (`tag.startsWith('mdui-')`), configured in `vite.config.js`
-
-### LMS (Light Management Service)
-
-ClassTop includes a companion LMS for local network management. Located in `lms/` directory.
-
-**Features:**
-- WebSocket-based real-time control of multiple clients
-- Remote settings management
-- Camera monitoring control
-- SQLite-based client registry and command logging
-- Optional Management-Server integration (enterprise-grade central hub)
-
-**LMS Server Structure** (`lms/`):
-```
-lms/
-├── main.py                    # FastAPI application entry
-├── websocket_manager.py       # WebSocket connection manager
-├── models.py                  # Data models
-├── db.py                      # SQLite database layer
-├── management_client.py       # Management-Server integration client
-├── api/                       # API endpoints
-│   ├── clients.py            # Client management
-│   ├── settings.py           # Settings management
-│   └── cctv.py               # Camera control
-└── static/                    # Web management UI
-    ├── index.html
-    ├── style.css
-    └── app.js
+```python
+# In schedule_manager.py
+def calculate_week_number(semester_start_date: str) -> int:
+    # Calculates weeks elapsed since semester start
+    # Used by get_calculated_week_number()
 ```
 
-**Starting LMS**:
-```bash
-cd lms
-pip install -r requirements.txt
-python main.py
+### Schedule Display Algorithm
+
+Located in `src/TopBar/components/Schedule.vue`:
+
+**Logic:**
+1. Fetch all classes for current day
+2. Check if any class is in progress (current time within start-end)
+3. If in progress: show progress bar
+4. If between classes: show countdown to next class with actual interval duration
+5. If all classes ended today: show tomorrow's first class
+
+**Important:** Uses actual time difference between classes, not fixed interval assumptions.
+
+### Database Schema
+
+SQLite database at `~/.classtop/classtop.db`:
+
+```sql
+-- courses: Basic course information
+CREATE TABLE courses (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    teacher TEXT,
+    location TEXT,
+    color TEXT
+);
+
+-- schedule: Course schedule entries
+CREATE TABLE schedule (
+    id INTEGER PRIMARY KEY,
+    course_id INTEGER,
+    day_of_week INTEGER,  -- 1=Monday, 7=Sunday (ISO format)
+    start_time TEXT,      -- HH:MM format
+    end_time TEXT,
+    weeks TEXT,           -- JSON array: [1,2,3,...]
+    note TEXT,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- config: Key-value settings storage
+CREATE TABLE config (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 ```
 
-Access management interface at `http://localhost:8000`
+### Settings Management
 
-**Client Configuration**:
-- `server_url`: WebSocket URL of LMS (e.g., `ws://localhost:8000`)
-- `client_uuid`: Auto-generated client identifier
+All settings have defaults defined in `settings_manager.py::DEFAULT_SETTINGS`.
 
-**Communication Flow**:
-1. Client connects via WebSocket on startup (if `server_url` configured)
-2. Client registers with UUID and metadata
-3. LMS sends commands via WebSocket
-4. Client responds with execution results
-5. Heartbeat every 30 seconds to maintain connection
+**Key settings:**
+- `semester_start_date`: For automatic week calculation
+- `theme_mode`: 'auto' | 'dark' | 'light'
+- `theme_color`: Material Design color (hex)
+- `sync_enabled`: Enable Management Server sync
+- `server_url`: Management Server endpoint
+- `client_uuid`: Unique client identifier
+- `reminder_enabled`: Enable course reminders
+- `reminder_minutes`: Minutes before class to remind
 
-### Management Server Integration (NEW)
+### Management Server Integration
 
-ClassTop 客户端现已支持与 Management Server 进行 HTTP REST API 同步。
+**Two server options:**
 
-**Location:** `src-tauri/python/tauri_app/sync_client.py`
+1. **admin-server** (local WebSocket control):
+   - Located in `admin-server/` directory
+   - FastAPI + WebSocket for real-time control
+   - Run: `cd admin-server && python main.py`
 
-**Features:**
-- HTTP REST API 数据同步到中央服务器
-- 自动注册客户端到 Management Server
-- 后台自动同步线程（可配置间隔）
-- 手动触发同步操作
-- 线程安全的 UUID 生成和管理
-- 安全的 JSON 数据解析
+2. **Management-Server** (enterprise sync):
+   - External repo: Zixiao-System/Classtop-Management-Server
+   - RESTful API for multi-client data sync
+   - Client implementation: `sync_client.py`
+   - Commands: `test_server_connection()`, `sync_now()`, `register_to_server()`
 
-**Configuration Settings:**
-- `sync_enabled`: "true"/"false" - 启用/禁用自动同步
-- `sync_interval`: "300" - 同步间隔（秒），默认 5 分钟
-- `client_name`: "" - 客户端名称（留空则使用主机名）
-- `server_url`: Management Server URL (e.g., `http://localhost:8765`)
-- `show_sync_status`: "true"/"false" - 是否在顶栏显示同步状态图标（默认启用）
+### Audio Monitoring Architecture
 
-**Python Commands:**
-- `test_server_connection()`: 测试服务器连接（健康检查）
-- `register_to_server()`: 注册客户端到服务器
-- `sync_now()`: 立即同步数据到服务器
-- `get_sync_status()`: 获取当前同步状态（用于顶栏显示）
+Uses PyTauri's Channel API for real-time streaming:
 
-**Frontend UI:**
-- Settings.vue 包含完整的同步配置界面
-- 实时状态显示（成功/失败带颜色指示）
-- 三个操作按钮：测试连接、注册客户端、立即同步
-- **TopBar.vue 显示连接状态图标**：
-  - 绿色 `cloud_done` 图标：已连接到 Management Server
-  - 红色 `cloud_off` 图标：未连接或同步已禁用
-  - 鼠标悬停显示详细信息（服务器地址、连接状态）
-  - 可通过设置中的"组件显示 > 同步状态"开关控制显示
+```python
+# Backend (commands.py)
+@commands.command()
+async def start_audio_monitoring(
+    body: StartAudioMonitoringRequest,
+    webview_window: WebviewWindow
+) -> AudioMonitoringResponse:
+    channel = body.channel_id.channel_on(webview_window.as_ref_webview())
 
-**Important - PyTauri Commands:**
-Management Server 命令必须使用 `pyInvoke()` 而非标准 Tauri `invoke()`:
+    def callback(level):
+        data = AudioLevelData(timestamp=..., rms=..., db=..., peak=...)
+        channel.send_model(data)
+
+    audio_manager.start_monitoring(callback=callback)
+```
 
 ```javascript
-// 正确用法
-import { pyInvoke } from 'tauri-plugin-pytauri-api';
-const result = await pyInvoke('test_server_connection');
+// Frontend (AudioMonitor.vue)
+import { Channel } from 'tauri-plugin-pytauri-api';
 
-// 错误用法（会导致 Command not Found 错误）
-import { invoke } from '@tauri-apps/api/core';
-const result = await invoke('test_server_connection');  // ❌ 不会工作
+const channel = new Channel();
+await pyInvoke('start_audio_monitoring', {
+  monitor_type: 'microphone',
+  channel_id: channel.id
+});
+
+channel.onmessage = (data) => {
+  // Handle real-time audio level data
+};
 ```
 
-**Synchronized Data:**
-- 所有课程信息（id, name, teacher, color, note）
-- 所有课程表条目（id, course_id, day_of_week, start_time, end_time, weeks）
-- 客户端元数据（UUID, name, API URL）
+### Conflict Detection
 
-**Notes:**
-- `location` 字段目前不同步（Management Server v1.0 暂不支持）
-- API 字段名：使用 `id` 和 `course_id`，而非 `id_on_client` 和 `course_id_on_client`
-- 线程安全：UUID 生成使用 threading.Lock 保护
-- 错误处理：JSON 解析失败时返回空数组而非崩溃
+When adding/editing schedule entries, `check_schedule_conflict` validates:
+- Time overlap on same day
+- Week number conflicts (checks weeks array intersection)
+- Returns conflicting entries with specific conflict weeks
 
-**Initialization:**
-Sync client 在 `__init__.py:main()` 中初始化，如果 `sync_enabled=true` 则自动注册并启动后台同步。
+## Testing Strategy
 
-**Documentation:**
-- 集成总结: `INTEGRATION_SUMMARY.md`
-- 快速开始: `docs/QUICK_START_SYNC.md`
-- Management Server: https://github.com/Zixiao-System/Classtop-Management-Server
+### Python Tests
 
-**Status:** ✅ 已完成并合并到 master (PR #30)
+Located in `src-tauri/tests/`:
 
-### API Server (Optional)
+- **test_schedule_manager.py**: Schedule CRUD and conflict detection
+- **test_settings_manager.py**: Settings initialization and updates
+- **test_db.py**: Database operations
+- **test_commands.py**: Command handlers
+- **test_events.py**: Event emission
+- **test_sync_client.py**: Server synchronization
 
-ClassTop includes an optional HTTP API server for centralized management.
+**Test database:** Uses temporary in-memory SQLite database for isolation
 
-**Location:** `src-tauri/python/tauri_app/api_server.py`
+**Pytest markers:**
+- `@pytest.mark.unit`: Unit tests (fast)
+- `@pytest.mark.integration`: Integration tests
+- `@pytest.mark.slow`: Long-running tests
+- `@pytest.mark.windows_only`: Windows-specific tests
 
-**Features:**
-- RESTful HTTP endpoints for all CRUD operations
-- FastAPI-based implementation with automatic OpenAPI documentation
-- Runs in background daemon thread (non-blocking)
-- Configurable via settings (enabled/disabled, host, port)
+### Running Tests
 
-**Configuration Settings:**
-- `api_server_enabled`: "true"/"false" - Enable/disable API server
-- `api_server_host`: Default "0.0.0.0" - Listening address
-- `api_server_port`: Default "8765" - Listening port
+```bash
+cd src-tauri
 
-**Access Points:**
-- API Base: `http://localhost:8765/api/`
-- Swagger UI: `http://localhost:8765/api/docs`
-- ReDoc: `http://localhost:8765/api/redoc`
+# All tests
+pytest
 
-**Initialization:**
-API server is conditionally initialized in `__init__.py:main()` after schedule/settings managers, only if `api_server_enabled` is "true".
+# Specific marker
+pytest -m unit
 
-**Dependencies:**
-Requires `fastapi` and `uvicorn` packages. If not installed, API server silently disables with warning in logs.
+# With coverage
+pytest --cov=tauri_app --cov-report=html
 
-**Documentation:**
-- Full API reference: `docs/API.md`
-- Quick start guide: `docs/API_QUICKSTART.md`
+# Verbose output
+pytest -v -s
+```
 
-## Important Patterns
+## Common Development Scenarios
 
 ### Adding a New Python Command
 
-1. Define request/response models in `commands.py` using Pydantic
-2. Add `@commands.command()` decorated async function
-3. Implement logic (usually delegates to db.py or managers)
-4. Export wrapper in `src/utils/schedule.js` using `pyInvoke()`
-5. Add to capabilities if needed: `src-tauri/capabilities/default.json`
-
-### Time Format Consistency
-
-- **Storage:** HH:MM string format (e.g., "14:30")
-- **Day of week:** ISO 8601 (1-7, Monday=1, Sunday=7)
-- **Parsing:** Use `parseTime()` from `schedule.js` to get `{hour, minute}` objects
-- **Progress calculation:** Include seconds for smooth progress bars (`calculateCourseProgress()`)
-
-### Cross-day Schedule Queries
-
-When today's classes end, frontend must query next day:
-- Use `getScheduleForWeek()` to get all week data once
-- Use `findNextClassAcrossWeek()` to find cross-day next class
-- Avoids multiple Python calls and handles week wraparound
-
-### Platform-Specific Code
-
-**Camera Manager (Windows Only)**:
+1. Define request/response models in `commands.py`:
 ```python
-import platform
+class MyRequest(BaseModel):
+    param1: str
+    param2: int
 
-if platform.system() == "Windows":
-    from .camera_manager import CameraManager
-    # Initialize camera manager
-else:
-    logger.log_message("info", "Camera manager not initialized: platform is not Windows")
+class MyResponse(BaseModel):
+    result: str
 ```
 
-**Pattern**: Import platform-specific modules conditionally at runtime, not at module level, to prevent import errors.
+2. Implement command handler:
+```python
+@commands.command()
+async def my_command(body: MyRequest) -> MyResponse:
+    # Implementation
+    return MyResponse(result="...")
+```
 
-## Common Issues
+3. Add permission in `src-tauri/capabilities/default.json`:
+```json
+{
+  "permissions": [
+    "pytauri:allow-my_command"
+  ]
+}
+```
 
-### PyTauri Integration
-- All Python dependencies must be available at runtime (PyTauri bundles Python environment)
-- `pyInvoke()` is async - always await the call
-- Event emission from non-async-loop threads uses the portal (handled automatically by EventHandler)
+4. Call from frontend:
+```javascript
+const result = await pyInvoke('my_command', { param1: 'value', param2: 42 });
+```
 
-### Window Management
-- TopBar window has `closable: false` to prevent accidental closure
-- Both windows defined in `tauri.conf.json` app.windows array
-- Main window starts hidden (`visible: false`), shown by system tray
+### Adding a New Setting
 
-### Week Calculation Edge Cases
-- When semester_start_date is cleared, falls back to manual week (default 1)
-- Week numbers calculated as floor((today - start_date).days / 7) + 1
-- Frontend must call `get_current_week()` to get computed week info
+1. Add default to `settings_manager.py::DEFAULT_SETTINGS`:
+```python
+DEFAULT_SETTINGS = {
+    'my_setting': 'default_value',
+    # ...
+}
+```
 
-### CI/CD
-- **No package-lock.json**: Project intentionally excludes package-lock.json from VCS
-- Use `npm install` (not `npm ci`) in scripts
-- GitHub Actions: No npm cache configuration (requires lock file)
+2. Add to global state in `src/utils/globalVars.js`:
+```javascript
+export const settings = reactive({
+    my_setting: 'default_value',
+    // ...
+});
+```
 
-### Platform Compatibility
-- Camera features only work on Windows
-- Always check `platform.system()` before initializing platform-specific features
-- Use delayed imports for platform-specific modules
+3. Access in components:
+```javascript
+import { settings, loadSettings } from '@/utils/globalVars.js';
 
-## Related Projects
+// Read
+console.log(settings.my_setting);
 
-### Management-Server (Enterprise)
-- **Repository**: [Classtop-Management-Server](https://github.com/Zixiao-System/Classtop-Management-Server)
-- **Tech Stack**: Rust + Actix-Web + PostgreSQL + Vue 3
-- **Purpose**: Enterprise-grade centralized management server
-- **Features**: Multi-client data sync, analytics, WebSocket control, LMS instance management
+// Update (saves to database automatically)
+settings.my_setting = 'new_value';
+```
 
-**Integration Docs**:
-- `docs/DUAL_TRACK_ARCHITECTURE.md`: Comprehensive dual-track architecture guide
-- `docs/MANAGEMENT_SERVER_IMPROVEMENT_PLAN.md`: Improvement plans
-- `docs/QUICK_START_SYNC.md`: 5-step sync guide
-- `docs/CLIENT_ADAPTATION.md`: Client integration details
+### Adding Real-time Events
 
-### LMS vs Management-Server
-- **LMS**: Lightweight, local network, WebSocket-based, 10-50 clients
-- **Management-Server**: Enterprise, centralized, PostgreSQL, hundreds-thousands of clients
-- **Dual-track**: Clients can connect to both simultaneously (LMS for real-time control, Management-Server for data analytics)
+1. Define event in `events.py`:
+```python
+def emit_my_event(data: dict):
+    if event_handler:
+        event_handler.emit("my-event", data)
+```
 
-## Development Documentation
+2. Listen in Vue component:
+```javascript
+import { listen } from '@tauri-apps/api/event';
 
-### Platform Setup Guides
-- `docs/LINUX_SETUP.md`: Ubuntu/Debian/Fedora/Arch Linux setup
-- `docs/MACOS_SETUP.md`: macOS setup (Intel/Apple Silicon)
-- README.md: Windows setup (PowerShell commands)
+listen('my-event', (event) => {
+    console.log('Event data:', event.payload);
+});
+```
 
-### IDE Configuration Guides
-- `docs/VSCODE_SETUP.md`: VSCode configuration (all platforms)
-- `docs/XCODE_SETUP.md`: Xcode configuration (macOS debugging/profiling)
-- `docs/VISUAL_STUDIO_SETUP.md`: Visual Studio configuration (Windows debugging/profiling)
+## Platform-Specific Notes
 
-### API Documentation
-- `docs/API.md`: Complete HTTP API reference
-- `docs/API_QUICKSTART.md`: API usage examples
-- `lms/README.md`: LMS API documentation
+### Windows
+- Virtual environment activation: `.venv\Scripts\Activate.ps1`
+- Build script: `Build.ps1`
+- Audio monitoring uses `pycaw` for system audio loopback
 
-## Future Improvements
+### macOS
+- Virtual environment: `source .venv/bin/activate`
+- Build script: `build.sh`
+- Requires Xcode command line tools
 
-### Dual-Project Enhancement Plan
+### Linux
+- `glib` dependency required (only on Linux, specified in Cargo.toml)
+- May need additional system packages for camera/audio support
 
-The following improvements need to be implemented **simultaneously** across both ClassTop client and Management Server projects to maintain compatibility and feature parity:
+## Important Files and Their Purposes
 
-#### 1. Enhanced Data Synchronization
-**ClassTop Client:**
-- Implement bidirectional sync (server → client updates)
-- Add conflict resolution for concurrent edits
-- Support incremental/delta sync to reduce bandwidth
-- Add offline queue for failed sync operations
+- **tauri.conf.json**: Window configuration, permissions, build settings
+- **Cargo.toml**: Rust dependencies, PyTauri configuration
+- **pyproject.toml**: Python dependencies, pytest configuration
+- **capabilities/default.json**: Frontend permission whitelist
+- **vite.config.js**: Vite dev server, MDUI custom element configuration
 
-**Management Server:**
-- Implement WebSocket push notifications for data changes
-- Add versioning/timestamp-based conflict detection
-- Support batch operations API for efficiency
-- Implement sync status tracking per client
+## Course Reminder System
 
-#### 2. Location Field Support
-**ClassTop Client:**
-- Update `sync_client.py` to include `location` field in sync payload
-- Ensure `location` is properly serialized and sent to server
+Located in `src-tauri/python/tauri_app/reminder_manager.py`:
 
-**Management Server:**
-- Add `location` field to database schema (`courses` table)
-- Update API endpoints to accept and return `location` data
-- Implement migration script for existing deployments
+- Background thread checks upcoming classes
+- Sends desktop notifications before class starts
+- Configurable reminder time (5/10/15/30 minutes before)
+- Optional sound notification
+- Automatically runs when app starts if enabled
 
-#### 3. Enhanced Authentication & Security
-**ClassTop Client:**
-- Add API token-based authentication for Management Server
-- Support secure token storage in config
-- Implement token refresh mechanism
+## Troubleshooting
 
-**Management Server:**
-- Implement JWT-based authentication system
-- Add API key management for clients
-- Support role-based access control (RBAC)
-- Add rate limiting for API endpoints
+### PyTauri Command Not Found
+- Check `capabilities/default.json` for permission
+- Ensure `@commands.command()` decorator is present
+- Verify command is imported in `__init__.py`
 
-#### 4. Real-time Collaboration Features
-**ClassTop Client:**
-- Receive real-time updates from server via WebSocket
-- Show indicators when data is modified by another client
-- Support graceful handling of remote data changes
+### Database Locked Error
+- Close all app instances
+- Check for orphaned processes
+- Database uses proper context managers for connection handling
 
-**Management Server:**
-- Implement WebSocket server for real-time push
-- Add pub/sub mechanism for multi-client notifications
-- Track which clients are currently online
+### TopBar Not Updating
+- Check `Schedule.vue` refresh intervals (1s for display, 10s for data)
+- Verify event listeners are properly registered
+- Check browser console for pyInvoke errors
 
-#### 5. Advanced Analytics & Reporting
-**ClassTop Client:**
-- Send usage analytics to server (opt-in)
-- Report client health metrics (version, errors, sync status)
-
-**Management Server:**
-- Implement analytics dashboard
-- Add aggregate reports (total classes, popular courses, etc.)
-- Support exporting data to CSV/JSON
-- Implement client health monitoring
-
-#### 6. Improved Error Handling & Logging
-**ClassTop Client:**
-- Add detailed error codes for sync failures
-- Implement exponential backoff for retries
-- Send error reports to server (opt-in)
-
-**Management Server:**
-- Add comprehensive error logging
-- Implement error tracking and alerting
-- Provide API for clients to report errors
-- Add admin interface for reviewing client errors
-
-#### 7. Multi-Semester Support
-**ClassTop Client:**
-- Support multiple semester profiles
-- Allow switching between semesters
-- Sync semester metadata to server
-
-**Management Server:**
-- Add semester/academic year grouping
-- Support historical data queries by semester
-- Implement semester-based analytics
-
-#### 8. API Versioning
-**Both Projects:**
-- Implement API versioning (e.g., `/api/v1/`, `/api/v2/`)
-- Maintain backward compatibility for at least one major version
-- Document API changes and deprecations
-- Add version negotiation in sync protocol
-
-### Implementation Priority
-
-**Phase 1 (High Priority):**
-1. Location field support
-2. Enhanced authentication
-3. Improved error handling
-
-**Phase 2 (Medium Priority):**
-4. Bidirectional sync
-5. Real-time collaboration
-6. API versioning
-
-**Phase 3 (Low Priority):**
-7. Advanced analytics
-8. Multi-semester support
-
-### Coordination Guidelines
-
-When implementing these improvements:
-- Create matching PRs in both repositories
-- Use consistent naming for API endpoints and data structures
-- Update documentation in both projects simultaneously
-- Ensure backward compatibility during transitions
-- Test integration thoroughly before merging
-- Coordinate release versions between projects (e.g., ClassTop v2.0 with Management Server v2.0)
-
-### Related Issues & PRs
-
-Track dual-project improvements with these tags:
-- `dual-project`: Feature requires changes in both repos
-- `breaking-change`: API/protocol changes requiring coordinated updates
-- `sync-protocol`: Changes to synchronization mechanism
-
-**Cross-Repository References:**
-- Link related issues: `Zixiao-System/Classtop-Management-Server#XX`
-- Mention paired PRs in commit messages
-- Maintain compatibility matrix in `docs/COMPATIBILITY.md`
+### Build Fails
+- Ensure CPython is downloaded to `src-tauri/pyembed`
+- Check Python dependencies are installed: `uv pip install -e src-tauri`
+- Verify Node dependencies: `npm install`
