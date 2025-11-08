@@ -178,6 +178,37 @@ class SettingsManager:
         """
         return self.set_setting(key, 'true' if value else 'false')
 
+    def get_setting_int(self, key: str, default: int = 0) -> int:
+        """获取整数类型设置值
+
+        Args:
+            key: 设置键名
+            default: 默认值（如果设置不存在或无法转换）
+
+        Returns:
+            整数值
+        """
+        value = self.get_setting(key)
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except ValueError:
+            self.logger.log_message("warning", f"Cannot convert '{value}' to int for key '{key}', using default {default}")
+            return default
+
+    def set_setting_int(self, key: str, value: int) -> bool:
+        """设置整数类型设置值
+
+        Args:
+            key: 设置键名
+            value: 整数值
+
+        Returns:
+            是否成功
+        """
+        return self.set_setting(key, str(value))
+
     def get_all_settings(self) -> Dict[str, str]:
         """获取所有设置
 
