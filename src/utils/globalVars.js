@@ -43,6 +43,8 @@ export const settings = reactive({
   sync_enabled: 'false',
   sync_interval: '300',
   client_name: '',
+  sync_direction: 'upload', // 'upload' | 'download' | 'bidirectional'
+  sync_strategy: 'server_wins', // 'server_wins' | 'local_wins' | 'newest_wins'
 
   // 动态计算的值（不持久化）
   current_week: 1,
@@ -96,6 +98,8 @@ export async function loadSettings() {
     settings.sync_enabled = allSettings.sync_enabled || 'false';
     settings.sync_interval = allSettings.sync_interval || '300';
     settings.client_name = allSettings.client_name || '';
+    settings.sync_direction = allSettings.sync_direction || 'upload';
+    settings.sync_strategy = allSettings.sync_strategy || 'server_wins';
 
     settings.loaded = true;
 
