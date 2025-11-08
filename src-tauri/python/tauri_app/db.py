@@ -67,6 +67,23 @@ def init_db() -> None:
         )
         logger.log_message("debug", "Schedule table ready")
 
+        # Sync history table - tracks synchronization operations
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sync_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                direction TEXT CHECK(direction IN ('upload', 'download', 'bidirectional')) NOT NULL,
+                status TEXT CHECK(status IN ('success', 'failure', 'conflict')) NOT NULL,
+                message TEXT,
+                courses_synced INTEGER DEFAULT 0,
+                schedule_synced INTEGER DEFAULT 0,
+                conflicts_found INTEGER DEFAULT 0
+            )
+            """
+        )
+        logger.log_message("debug", "Sync history table ready")
+
         # Current week settings with semester start date
         cur.execute(
             """

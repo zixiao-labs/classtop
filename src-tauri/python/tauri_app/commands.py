@@ -1375,4 +1375,68 @@ async def bidirectional_sync_now(body: BidirectionalSyncRequest) -> Bidirectiona
         )
 
 
+# ============= Sync History Commands =============
+
+class SyncHistoryEntry(BaseModel):
+    id: int
+    timestamp: str
+    direction: str
+    status: str
+    message: str
+    courses_synced: int
+    schedule_synced: int
+    conflicts_found: int
+
+
+class GetSyncHistoryRequest(BaseModel):
+    limit: int = 10
+
+
+class GetSyncHistoryResponse(BaseModel):
+    success: bool
+    message: str
+    history: List[SyncHistoryEntry] = []
+
+
+@commands.command()
+async def get_sync_history(body: GetSyncHistoryRequest) -> GetSyncHistoryResponse:
+    """获取同步历史记录"""
+    try:
+        with _db.schedule_manager.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, timestamp, direction, status, message,
+                       courses_synced, schedule_synced, conflicts_found
+                FROM sync_history
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (body.limit,))
+            rows = cur.fetchall()
+
+            history = [
+                SyncHistoryEntry(
+                    id=row[0],
+                    timestamp=row[1],
+                    direction=row[2],
+                    status=row[3],
+                    message=row[4] or "",
+                    courses_synced=row[5] or 0,
+                    schedule_synced=row[6] or 0,
+                    conflicts_found=row[7] or 0
+                )
+                for row in rows
+            ]
+
+            return GetSyncHistoryResponse(
+                success=True,
+                message="获取历史成功",
+                history=history
+            )
+    except Exception as e:
+        _logger.log_message("error", f"Get sync history failed: {e}")
+        return GetSyncHistoryResponse(
+            success=False,
+            message=f"获取历史失败: {str(e)}"
+        )
+
 

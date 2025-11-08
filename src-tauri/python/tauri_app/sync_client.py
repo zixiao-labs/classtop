@@ -25,6 +25,24 @@ class SyncClient:
         self.is_running = False
         self.uuid_lock = threading.Lock()  # 用于 UUID 生成的线程锁
 
+    def _log_sync_history(self, direction: str, status: str, message: str,
+                         courses_synced: int = 0, schedule_synced: int = 0,
+                         conflicts_found: int = 0):
+        """Log sync operation to history table"""
+        try:
+            # Use schedule_manager's database connection
+            with self.schedule_manager.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO sync_history
+                    (direction, status, message, courses_synced, schedule_synced, conflicts_found)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (direction, status, message, courses_synced, schedule_synced, conflicts_found))
+                conn.commit()
+                self.logger.log_message("debug", f"Sync history logged: {direction} - {status}")
+        except Exception as e:
+            self.logger.log_message("error", f"Failed to log sync history: {e}")
+
     def register_client(self) -> bool:
         """向服务器注册客户端"""
         try:
@@ -132,13 +150,48 @@ class SyncClient:
                     "info",
                     f"同步成功: {courses_synced} 门课程, {entries_synced} 个课程表条目",
                 )
+
+                # Log sync history
+                self._log_sync_history(
+                    direction="upload",
+                    status="success",
+                    message=f"同步成功: {courses_synced} 门课程, {entries_synced} 个课程表条目",
+                    courses_synced=courses_synced,
+                    schedule_synced=entries_synced,
+                    conflicts_found=0
+                )
+
                 return True
             else:
-                self.logger.log_message("error", f"同步失败: {result}")
+                error_msg = f"同步失败: {result}"
+                self.logger.log_message("error", error_msg)
+
+                # Log failed sync
+                self._log_sync_history(
+                    direction="upload",
+                    status="failure",
+                    message=error_msg,
+                    courses_synced=0,
+                    schedule_synced=0,
+                    conflicts_found=0
+                )
+
                 return False
 
         except Exception as e:
-            self.logger.log_message("error", f"同步到服务器失败: {e}")
+            error_msg = f"同步到服务器失败: {e}"
+            self.logger.log_message("error", error_msg)
+
+            # Log failed sync
+            self._log_sync_history(
+                direction="upload",
+                status="failure",
+                message=error_msg,
+                courses_synced=0,
+                schedule_synced=0,
+                conflicts_found=0
+            )
+
             return False
 
     def test_connection(self) -> Dict:
@@ -306,6 +359,16 @@ class SyncClient:
                 f"下载成功: {len(courses)} 门课程, {len(schedule_entries)} 个课程表条目"
             )
 
+            # Log download success
+            self._log_sync_history(
+                direction="download",
+                status="success",
+                message=f"下载成功: {len(courses)} 门课程, {len(schedule_entries)} 个课程表条目",
+                courses_synced=len(courses),
+                schedule_synced=len(schedule_entries),
+                conflicts_found=0
+            )
+
             return {
                 "success": True,
                 "message": "下载成功",
@@ -314,12 +377,39 @@ class SyncClient:
             }
 
         except requests.exceptions.Timeout:
-            return {"success": False, "message": "连接超时"}
+            error_msg = "连接超时"
+            self._log_sync_history(
+                direction="download",
+                status="failure",
+                message=error_msg,
+                courses_synced=0,
+                schedule_synced=0,
+                conflicts_found=0
+            )
+            return {"success": False, "message": error_msg}
         except requests.exceptions.ConnectionError:
-            return {"success": False, "message": "无法连接到服务器"}
+            error_msg = "无法连接到服务器"
+            self._log_sync_history(
+                direction="download",
+                status="failure",
+                message=error_msg,
+                courses_synced=0,
+                schedule_synced=0,
+                conflicts_found=0
+            )
+            return {"success": False, "message": error_msg}
         except Exception as e:
+            error_msg = f"下载失败: {str(e)}"
             self.logger.log_message("error", f"从服务器下载数据失败: {e}")
-            return {"success": False, "message": f"下载失败: {str(e)}"}
+            self._log_sync_history(
+                direction="download",
+                status="failure",
+                message=error_msg,
+                courses_synced=0,
+                schedule_synced=0,
+                conflicts_found=0
+            )
+            return {"success": False, "message": error_msg}
 
     def detect_conflicts(self, local_data: Dict, server_data: Dict) -> Dict:
         """Detect conflicts between local and server data
@@ -674,13 +764,36 @@ class SyncClient:
                 f"{result['conflicts_found']} 个冲突已解决"
             )
 
+            # Log bidirectional sync with conflict status
+            sync_status = "conflict" if conflicts_found > 0 else "success"
+            self._log_sync_history(
+                direction="bidirectional",
+                status=sync_status,
+                message=f"双向同步完成: {result['courses_updated']} 门课程, {result['entries_updated']} 个课程表条目, {result['conflicts_found']} 个冲突已解决",
+                courses_synced=result['courses_updated'],
+                schedule_synced=result['entries_updated'],
+                conflicts_found=conflicts_found
+            )
+
             return result
 
         except Exception as e:
+            error_msg = f"同步异常: {str(e)}"
             self.logger.log_message("error", f"双向同步失败: {e}")
+
+            # Log failed bidirectional sync
+            self._log_sync_history(
+                direction="bidirectional",
+                status="failure",
+                message=error_msg,
+                courses_synced=0,
+                schedule_synced=0,
+                conflicts_found=0
+            )
+
             return {
                 "success": False,
-                "message": f"同步异常: {str(e)}",
+                "message": error_msg,
                 "conflicts_found": 0,
                 "courses_updated": 0,
                 "entries_updated": 0
