@@ -25,6 +25,7 @@ def main() -> int:
     from .events import event_handler
     from .schedule_manager import ScheduleManager
     from .settings_manager import SettingsManager
+    from .statistics_manager import StatisticsManager
     from .api_server import APIServer
     from . import db as _db
 
@@ -55,6 +56,11 @@ def main() -> int:
             # Initialize schedule manager with event handler
             schedule_manager = ScheduleManager(_db.DB_PATH, event_handler)
             _db.set_schedule_manager(schedule_manager)
+
+            # Initialize statistics manager with event handler
+            statistics_manager = StatisticsManager(_db.DB_PATH, event_handler)
+            _db.set_statistics_manager(statistics_manager)
+            _logger.log_message("info", "Statistics manager initialized")
 
             # Initialize reminder manager
             try:

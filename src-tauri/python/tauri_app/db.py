@@ -14,6 +14,7 @@ settings_manager = None
 camera_manager = None
 audio_manager = None
 sync_client = None
+statistics_manager = None
 
 
 def init_db() -> None:
@@ -84,6 +85,38 @@ def init_db() -> None:
         )
         logger.log_message("debug", "Sync history table ready")
 
+        # Course sessions table - for attendance tracking
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS course_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER NOT NULL,
+                schedule_entry_id INTEGER NOT NULL,
+                date DATE NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                attended BOOLEAN DEFAULT 1,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+                FOREIGN KEY (schedule_entry_id) REFERENCES schedule(id) ON DELETE CASCADE
+            )
+            """
+        )
+        logger.log_message("debug", "Course sessions table ready")
+
+        # Statistics cache table - for performance optimization
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS statistics_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        logger.log_message("debug", "Statistics cache table ready")
+
         # Current week settings with semester start date
         cur.execute(
             """
@@ -135,6 +168,13 @@ def set_sync_client(client) -> None:
     global sync_client
     sync_client = client
     logger.log_message("info", "Sync client instance set")
+
+
+def set_statistics_manager(manager) -> None:
+    """Set the global statistics manager instance."""
+    global statistics_manager
+    statistics_manager = manager
+    logger.log_message("info", "Statistics manager instance set")
 
 
 # Configuration management functions - delegated to settings manager

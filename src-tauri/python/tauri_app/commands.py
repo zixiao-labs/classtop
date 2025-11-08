@@ -1440,3 +1440,379 @@ async def get_sync_history(body: GetSyncHistoryRequest) -> GetSyncHistoryRespons
         )
 
 
+# ============= Statistics and Attendance Commands =============
+
+class MarkAttendanceRequest(BaseModel):
+    """Request to mark attendance for a class session"""
+    course_id: int
+    schedule_entry_id: int
+    date: str  # YYYY-MM-DD format
+    attended: bool
+    notes: Optional[str] = None
+
+
+class MarkAttendanceResponse(BaseModel):
+    """Response for marking attendance"""
+    success: bool
+    message: str
+    session_id: int = 0
+
+
+@commands.command()
+async def mark_attendance(body: MarkAttendanceRequest) -> MarkAttendanceResponse:
+    """Mark attendance for a specific class session."""
+    try:
+        if not _db.statistics_manager:
+            return MarkAttendanceResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        session_id = _db.statistics_manager.mark_attendance(
+            course_id=body.course_id,
+            schedule_entry_id=body.schedule_entry_id,
+            date_str=body.date,
+            attended=body.attended,
+            notes=body.notes
+        )
+
+        if session_id > 0:
+            return MarkAttendanceResponse(
+                success=True,
+                message="Attendance recorded successfully",
+                session_id=session_id
+            )
+        else:
+            return MarkAttendanceResponse(
+                success=False,
+                message="Failed to record attendance"
+            )
+    except Exception as e:
+        _logger.log_message("error", f"Mark attendance failed: {e}")
+        return MarkAttendanceResponse(
+            success=False,
+            message=f"Failed to record attendance: {str(e)}"
+        )
+
+
+class GetAttendanceHistoryRequest(BaseModel):
+    """Request to get attendance history"""
+    course_id: Optional[int] = None
+    start_date: Optional[str] = None  # YYYY-MM-DD
+    end_date: Optional[str] = None    # YYYY-MM-DD
+    limit: int = 100
+
+
+class AttendanceRecord(BaseModel):
+    """Single attendance record"""
+    id: int
+    course_id: int
+    course_name: str
+    teacher: Optional[str]
+    color: Optional[str]
+    schedule_entry_id: int
+    date: str
+    start_time: str
+    end_time: str
+    attended: int  # 0 or 1
+    notes: Optional[str]
+    created_at: str
+
+
+class GetAttendanceHistoryResponse(BaseModel):
+    """Response with attendance history"""
+    success: bool
+    message: str
+    records: List[AttendanceRecord] = []
+
+
+@commands.command()
+async def get_attendance_history(body: GetAttendanceHistoryRequest) -> GetAttendanceHistoryResponse:
+    """Get attendance history with optional filters."""
+    try:
+        if not _db.statistics_manager:
+            return GetAttendanceHistoryResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        records = _db.statistics_manager.get_attendance_history(
+            course_id=body.course_id,
+            start_date=body.start_date,
+            end_date=body.end_date,
+            limit=body.limit
+        )
+
+        return GetAttendanceHistoryResponse(
+            success=True,
+            message=f"Retrieved {len(records)} attendance records",
+            records=[AttendanceRecord(**record) for record in records]
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Get attendance history failed: {e}")
+        return GetAttendanceHistoryResponse(
+            success=False,
+            message=f"Failed to get attendance history: {str(e)}"
+        )
+
+
+class DeleteAttendanceRequest(BaseModel):
+    """Request to delete an attendance record"""
+    session_id: int
+
+
+class DeleteAttendanceResponse(BaseModel):
+    """Response for deleting attendance"""
+    success: bool
+    message: str
+
+
+@commands.command()
+async def delete_attendance_record(body: DeleteAttendanceRequest) -> DeleteAttendanceResponse:
+    """Delete an attendance record."""
+    try:
+        if not _db.statistics_manager:
+            return DeleteAttendanceResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        success = _db.statistics_manager.delete_attendance_record(body.session_id)
+
+        if success:
+            return DeleteAttendanceResponse(
+                success=True,
+                message="Attendance record deleted successfully"
+            )
+        else:
+            return DeleteAttendanceResponse(
+                success=False,
+                message="Attendance record not found"
+            )
+    except Exception as e:
+        _logger.log_message("error", f"Delete attendance record failed: {e}")
+        return DeleteAttendanceResponse(
+            success=False,
+            message=f"Failed to delete attendance record: {str(e)}"
+        )
+
+
+class GetCourseStatisticsRequest(BaseModel):
+    """Request to get course statistics"""
+    start_week: Optional[int] = None
+    end_week: Optional[int] = None
+
+
+class CourseHoursData(BaseModel):
+    """Course hours statistics"""
+    total_hours: float
+    weekly_hours: Dict[int, float]
+    average_per_week: float
+
+
+class DistributionData(BaseModel):
+    """Course distribution statistics"""
+    by_day: Dict[int, int]
+    by_teacher: Dict[str, int]
+    by_location: Dict[str, int]
+
+
+class AttendanceRateData(BaseModel):
+    """Attendance rate statistics"""
+    total_sessions: int
+    attended_sessions: int
+    absence_sessions: int
+    attendance_rate: float
+
+
+class WeeklyLoadItem(BaseModel):
+    """Weekly load for a single day"""
+    day_of_week: int
+    class_count: int
+    total_hours: float
+
+
+class BusiestDayItem(BaseModel):
+    """Busiest day statistics"""
+    day_of_week: int
+    class_count: int
+    total_hours: float
+
+
+class GetCourseStatisticsResponse(BaseModel):
+    """Response with comprehensive course statistics"""
+    success: bool
+    message: str
+    total_hours: Optional[CourseHoursData] = None
+    distribution: Optional[DistributionData] = None
+    attendance: Optional[AttendanceRateData] = None
+    weekly_load: List[WeeklyLoadItem] = []
+    busiest_days: List[BusiestDayItem] = []
+    time_slots: Dict[str, int] = {}
+
+
+@commands.command()
+async def get_course_statistics(body: GetCourseStatisticsRequest) -> GetCourseStatisticsResponse:
+    """Get comprehensive course statistics."""
+    try:
+        if not _db.statistics_manager:
+            return GetCourseStatisticsResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        stats = _db.statistics_manager.calculate_all_statistics(
+            start_week=body.start_week,
+            end_week=body.end_week
+        )
+
+        return GetCourseStatisticsResponse(
+            success=True,
+            message="Statistics calculated successfully",
+            total_hours=CourseHoursData(**stats.get("total_hours", {})) if stats.get("total_hours") else None,
+            distribution=DistributionData(**stats.get("distribution", {})) if stats.get("distribution") else None,
+            attendance=AttendanceRateData(**stats.get("attendance", {})) if stats.get("attendance") else None,
+            weekly_load=[WeeklyLoadItem(**item) for item in stats.get("weekly_load", [])],
+            busiest_days=[BusiestDayItem(**item) for item in stats.get("busiest_days", [])],
+            time_slots=stats.get("time_slots", {})
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Get course statistics failed: {e}")
+        return GetCourseStatisticsResponse(
+            success=False,
+            message=f"Failed to get statistics: {str(e)}"
+        )
+
+
+class GetWeeklyLoadRequest(BaseModel):
+    """Request to get weekly course load"""
+    week_number: Optional[int] = None
+
+
+class GetWeeklyLoadResponse(BaseModel):
+    """Response with weekly course load"""
+    success: bool
+    message: str
+    weekly_load: List[WeeklyLoadItem] = []
+
+
+@commands.command()
+async def get_weekly_load(body: GetWeeklyLoadRequest) -> GetWeeklyLoadResponse:
+    """Get weekly course load for all days."""
+    try:
+        if not _db.statistics_manager:
+            return GetWeeklyLoadResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        load = _db.statistics_manager.get_weekly_load(body.week_number)
+
+        return GetWeeklyLoadResponse(
+            success=True,
+            message=f"Retrieved weekly load for week {body.week_number or 'all'}",
+            weekly_load=[WeeklyLoadItem(**item) for item in load]
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Get weekly load failed: {e}")
+        return GetWeeklyLoadResponse(
+            success=False,
+            message=f"Failed to get weekly load: {str(e)}"
+        )
+
+
+class GetAttendanceRateRequest(BaseModel):
+    """Request to get attendance rate"""
+    course_id: Optional[int] = None
+    start_date: Optional[str] = None  # YYYY-MM-DD
+    end_date: Optional[str] = None    # YYYY-MM-DD
+
+
+class GetAttendanceRateResponse(BaseModel):
+    """Response with attendance rate"""
+    success: bool
+    message: str
+    statistics: Optional[AttendanceRateData] = None
+
+
+@commands.command()
+async def get_attendance_rate(body: GetAttendanceRateRequest) -> GetAttendanceRateResponse:
+    """Get attendance rate with optional filters."""
+    try:
+        if not _db.statistics_manager:
+            return GetAttendanceRateResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        stats = _db.statistics_manager.get_attendance_rate(
+            course_id=body.course_id,
+            start_date=body.start_date,
+            end_date=body.end_date
+        )
+
+        return GetAttendanceRateResponse(
+            success=True,
+            message="Attendance rate calculated successfully",
+            statistics=AttendanceRateData(**stats)
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Get attendance rate failed: {e}")
+        return GetAttendanceRateResponse(
+            success=False,
+            message=f"Failed to get attendance rate: {str(e)}"
+        )
+
+
+class GetCourseAttendanceSummaryRequest(BaseModel):
+    """Request to get course-specific attendance summary"""
+    course_id: int
+
+
+class CourseAttendanceSummaryResponse(BaseModel):
+    """Response with course attendance summary"""
+    success: bool
+    message: str
+    course_id: int = 0
+    course_name: str = ""
+    teacher: Optional[str] = None
+    statistics: Optional[AttendanceRateData] = None
+    recent_sessions: List[AttendanceRecord] = []
+
+
+@commands.command()
+async def get_course_attendance_summary(body: GetCourseAttendanceSummaryRequest) -> CourseAttendanceSummaryResponse:
+    """Get comprehensive attendance summary for a specific course."""
+    try:
+        if not _db.statistics_manager:
+            return CourseAttendanceSummaryResponse(
+                success=False,
+                message="Statistics manager not available"
+            )
+
+        summary = _db.statistics_manager.get_course_attendance_summary(body.course_id)
+
+        if not summary:
+            return CourseAttendanceSummaryResponse(
+                success=False,
+                message=f"Course {body.course_id} not found"
+            )
+
+        return CourseAttendanceSummaryResponse(
+            success=True,
+            message="Course attendance summary retrieved successfully",
+            course_id=summary.get("course_id", 0),
+            course_name=summary.get("course_name", ""),
+            teacher=summary.get("teacher"),
+            statistics=AttendanceRateData(**summary.get("statistics", {})) if summary.get("statistics") else None,
+            recent_sessions=[AttendanceRecord(**record) for record in summary.get("recent_sessions", [])]
+        )
+    except Exception as e:
+        _logger.log_message("error", f"Get course attendance summary failed: {e}")
+        return CourseAttendanceSummaryResponse(
+            success=False,
+            message=f"Failed to get course attendance summary: {str(e)}"
+        )
+
+
+
