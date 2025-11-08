@@ -1222,4 +1222,157 @@ async def get_sync_status() -> SyncStatusResponse:
         )
 
 
+# Bidirectional Sync Commands
+class PullDataResponse(BaseModel):
+    success: bool
+    message: str
+    courses_count: int = 0
+    entries_count: int = 0
+
+
+@commands.command()
+async def pull_from_server() -> PullDataResponse:
+    """从 Management Server 下载数据"""
+    try:
+        if not _db.sync_client:
+            return PullDataResponse(
+                success=False,
+                message="同步客户端未初始化"
+            )
+
+        result = _db.sync_client.download_from_server()
+        if result.get("success"):
+            # 应用下载的数据到本地
+            apply_success = _db.sync_client.apply_server_data(result)
+            if apply_success:
+                return PullDataResponse(
+                    success=True,
+                    message="下载并应用数据成功",
+                    courses_count=len(result.get("courses", [])),
+                    entries_count=len(result.get("schedule_entries", []))
+                )
+            else:
+                return PullDataResponse(
+                    success=False,
+                    message="应用数据失败"
+                )
+        else:
+            return PullDataResponse(
+                success=False,
+                message=result.get("message", "下载失败")
+            )
+    except Exception as e:
+        _logger.log_message("error", f"Pull from server failed: {e}")
+        return PullDataResponse(
+            success=False,
+            message=f"下载失败: {str(e)}"
+        )
+
+
+class ConflictItem(BaseModel):
+    id: int
+    local: Dict
+    server: Dict
+
+
+class CheckConflictsResponse(BaseModel):
+    success: bool
+    message: str
+    has_conflicts: bool = False
+    conflicted_courses: List[ConflictItem] = []
+    conflicted_entries: List[ConflictItem] = []
+
+
+@commands.command()
+async def check_sync_conflicts() -> CheckConflictsResponse:
+    """检查本地和服务器数据冲突"""
+    try:
+        if not _db.sync_client:
+            return CheckConflictsResponse(
+                success=False,
+                message="同步客户端未初始化"
+            )
+
+        # 下载服务器数据
+        server_result = _db.sync_client.download_from_server()
+        if not server_result.get("success"):
+            return CheckConflictsResponse(
+                success=False,
+                message=f"下载服务器数据失败: {server_result.get('message')}"
+            )
+
+        server_data = {
+            "courses": server_result.get("courses", []),
+            "schedule_entries": server_result.get("schedule_entries", [])
+        }
+
+        # 获取本地数据
+        local_data = {
+            "courses": _db.schedule_manager.get_all_courses(),
+            "schedule_entries": _db.schedule_manager.get_all_schedule_entries()
+        }
+
+        # 检测冲突
+        conflicts = _db.sync_client.detect_conflicts(local_data, server_data)
+
+        return CheckConflictsResponse(
+            success=True,
+            message="冲突检测完成",
+            has_conflicts=conflicts.get("has_conflicts", False),
+            conflicted_courses=[
+                ConflictItem(**item) for item in conflicts.get("conflicted_courses", [])
+            ],
+            conflicted_entries=[
+                ConflictItem(**item) for item in conflicts.get("conflicted_entries", [])
+            ]
+        )
+
+    except Exception as e:
+        _logger.log_message("error", f"Check conflicts failed: {e}")
+        return CheckConflictsResponse(
+            success=False,
+            message=f"检测冲突失败: {str(e)}"
+        )
+
+
+class BidirectionalSyncRequest(BaseModel):
+    strategy: str = "server_wins"  # "server_wins", "local_wins", "newest_wins"
+
+
+class BidirectionalSyncResponse(BaseModel):
+    success: bool
+    message: str
+    conflicts_found: int = 0
+    courses_updated: int = 0
+    entries_updated: int = 0
+
+
+@commands.command()
+async def bidirectional_sync_now(body: BidirectionalSyncRequest) -> BidirectionalSyncResponse:
+    """执行双向同步（包含冲突解决）"""
+    try:
+        if not _db.sync_client:
+            return BidirectionalSyncResponse(
+                success=False,
+                message="同步客户端未初始化"
+            )
+
+        result = _db.sync_client.bidirectional_sync(strategy=body.strategy)
+
+        return BidirectionalSyncResponse(
+            success=result.get("success", False),
+            message=result.get("message", ""),
+            conflicts_found=result.get("conflicts_found", 0),
+            courses_updated=result.get("courses_updated", 0),
+            entries_updated=result.get("entries_updated", 0)
+        )
+
+    except Exception as e:
+        _logger.log_message("error", f"Bidirectional sync failed: {e}")
+        return BidirectionalSyncResponse(
+            success=False,
+            message=f"双向同步失败: {str(e)}"
+        )
+
+
 
