@@ -368,6 +368,257 @@
       </mdui-list>
     </mdui-card>
 
+    <!-- TopBar 外观定制 -->
+    <mdui-card class="settings-group">
+      <span class="group-title">TopBar 外观</span>
+      <mdui-divider></mdui-divider>
+
+      <!-- 实时预览面板 -->
+      <div class="topbar-preview" :style="topbarPreviewStyles">
+        <div class="preview-content">
+          <div class="preview-left">
+            <mdui-icon v-if="settings.topbar_show_icons === 'true'" name="book"></mdui-icon>
+            <span>课程进度 75%</span>
+          </div>
+          <div class="preview-center">12:34</div>
+          <div class="preview-right">
+            <mdui-icon v-if="settings.topbar_show_icons === 'true'" name="push_pin"></mdui-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- 主题预设 -->
+      <div class="theme-presets">
+        <div class="section-header">
+          <h3>主题预设</h3>
+          <mdui-button variant="text" icon="palette" @click="applyMDUITheme">
+            应用MDUI主题色
+          </mdui-button>
+        </div>
+        <div class="preset-grid">
+          <div
+            v-for="preset in themePresets"
+            :key="preset.key"
+            class="preset-card"
+            :class="{ 'preset-active': isPresetActive(preset) }"
+            @click="applyPreset(preset)"
+          >
+            <div class="preset-preview" :style="getPresetPreviewStyle(preset)">
+              <span :style="{ color: preset.text_color }">Aa</span>
+            </div>
+            <div class="preset-info">
+              <div class="preset-name">{{ preset.name }}</div>
+              <div class="preset-desc">{{ preset.description }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <mdui-divider style="margin: 1.5rem 0;"></mdui-divider>
+
+      <!-- 自定义样式控制 -->
+      <mdui-list>
+        <!-- 颜色设置 -->
+        <mdui-collapse accordion>
+          <mdui-collapse-item>
+            <div slot="header" style="display: flex; align-items: center; gap: 12px;">
+              <mdui-icon name="palette"></mdui-icon>
+              <span style="font-weight: 500;">颜色设置</span>
+            </div>
+            <div class="custom-controls">
+              <div class="control-row">
+                <label>背景颜色</label>
+                <div class="color-picker-group">
+                  <input
+                    type="color"
+                    :value="settings.topbar_background_color"
+                    @input="handleTopbarSettingChange('topbar_background_color', $event.target.value)"
+                  />
+                  <span class="color-value">{{ settings.topbar_background_color }}</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <label>背景透明度</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="0"
+                    max="100"
+                    :value="settings.topbar_background_opacity"
+                    @input="handleTopbarSettingChange('topbar_background_opacity', $event.target.value)"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ settings.topbar_background_opacity }}%</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <label>文字颜色</label>
+                <div class="color-picker-group">
+                  <input
+                    type="color"
+                    :value="settings.topbar_text_color"
+                    @input="handleTopbarSettingChange('topbar_text_color', $event.target.value)"
+                  />
+                  <span class="color-value">{{ settings.topbar_text_color }}</span>
+                </div>
+              </div>
+            </div>
+          </mdui-collapse-item>
+
+          <!-- 视觉效果 -->
+          <mdui-collapse-item>
+            <div slot="header" style="display: flex; align-items: center; gap: 12px;">
+              <mdui-icon name="blur_on"></mdui-icon>
+              <span style="font-weight: 500;">视觉效果</span>
+            </div>
+            <div class="custom-controls">
+              <div class="control-row">
+                <label>模糊强度</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="0"
+                    max="30"
+                    :value="settings.topbar_blur_strength"
+                    @input="handleTopbarSettingChange('topbar_blur_strength', $event.target.value)"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ settings.topbar_blur_strength }}px</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <label>圆角半径</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="0"
+                    max="30"
+                    :value="settings.topbar_border_radius"
+                    @input="handleTopbarSettingChange('topbar_border_radius', $event.target.value)"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ settings.topbar_border_radius }}px</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <label>启用阴影</label>
+                <mdui-switch
+                  :checked="settings.topbar_shadow_enabled === 'true'"
+                  @change="handleTopbarSettingChange('topbar_shadow_enabled', $event.target.checked ? 'true' : 'false')"
+                ></mdui-switch>
+              </div>
+            </div>
+          </mdui-collapse-item>
+
+          <!-- 字体设置 -->
+          <mdui-collapse-item>
+            <div slot="header" style="display: flex; align-items: center; gap: 12px;">
+              <mdui-icon name="text_fields"></mdui-icon>
+              <span style="font-weight: 500;">字体设置</span>
+            </div>
+            <div class="custom-controls">
+              <div class="control-row">
+                <label>字体族</label>
+                <mdui-select
+                  variant="filled"
+                  :value="settings.topbar_font_family"
+                  @change="handleTopbarSettingChange('topbar_font_family', $event.target.value)"
+                  style="width: 200px;"
+                >
+                  <mdui-menu-item value="system-ui">System UI</mdui-menu-item>
+                  <mdui-menu-item value="sans-serif">Sans Serif</mdui-menu-item>
+                  <mdui-menu-item value="serif">Serif</mdui-menu-item>
+                  <mdui-menu-item value="monospace">Monospace</mdui-menu-item>
+                </mdui-select>
+              </div>
+              <div class="control-row">
+                <label>字体粗细</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="300"
+                    max="900"
+                    step="100"
+                    :value="settings.topbar_font_weight"
+                    @input="handleTopbarSettingChange('topbar_font_weight', $event.target.value)"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ settings.topbar_font_weight }}</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <label>字体大小倍数</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="0.8"
+                    max="1.5"
+                    step="0.1"
+                    :value="settings.topbar_font_size_multiplier"
+                    @input="handleTopbarSettingChange('topbar_font_size_multiplier', Number($event.target.value).toFixed(1))"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ Number(settings.topbar_font_size_multiplier).toFixed(1) }}x</span>
+                </div>
+              </div>
+            </div>
+          </mdui-collapse-item>
+
+          <!-- 布局设置 -->
+          <mdui-collapse-item>
+            <div slot="header" style="display: flex; align-items: center; gap: 12px;">
+              <mdui-icon name="view_compact"></mdui-icon>
+              <span style="font-weight: 500;">布局设置</span>
+            </div>
+            <div class="custom-controls">
+              <div class="control-row">
+                <label>布局模式</label>
+                <mdui-segmented-button-group
+                  selects="single"
+                  :value="settings.topbar_layout"
+                  @change="handleTopbarSettingChange('topbar_layout', $event.target.value)"
+                >
+                  <mdui-segmented-button value="default">默认</mdui-segmented-button>
+                  <mdui-segmented-button value="minimal">极简</mdui-segmented-button>
+                  <mdui-segmented-button value="centered">居中</mdui-segmented-button>
+                </mdui-segmented-button-group>
+              </div>
+              <div class="control-row">
+                <label>显示图标</label>
+                <mdui-switch
+                  :checked="settings.topbar_show_icons === 'true'"
+                  @change="handleTopbarSettingChange('topbar_show_icons', $event.target.checked ? 'true' : 'false')"
+                ></mdui-switch>
+              </div>
+              <div class="control-row">
+                <label>组件间距</label>
+                <div class="slider-group">
+                  <mdui-slider
+                    min="8"
+                    max="50"
+                    :value="settings.topbar_component_spacing"
+                    @input="handleTopbarSettingChange('topbar_component_spacing', $event.target.value)"
+                    style="flex: 1;"
+                  ></mdui-slider>
+                  <span class="slider-value">{{ settings.topbar_component_spacing }}px</span>
+                </div>
+              </div>
+            </div>
+          </mdui-collapse-item>
+        </mdui-collapse>
+
+        <!-- 操作按钮 -->
+        <mdui-list-item rounded nonclickable style="margin-top: 1rem;">
+          <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+            <mdui-button variant="outlined" icon="refresh" @click="resetTopbarTheme">
+              重置为默认
+            </mdui-button>
+            <mdui-button variant="outlined" icon="file_download" @click="exportTopbarTheme">
+              导出主题
+            </mdui-button>
+            <mdui-button variant="outlined" icon="file_upload" @click="importTopbarTheme">
+              导入主题
+            </mdui-button>
+          </div>
+        </mdui-list-item>
+      </mdui-list>
+    </mdui-card>
+
     <!-- 组件设置 -->
     <mdui-card class="settings-group">
       <span class="group-title">组件显示</span>
@@ -492,11 +743,22 @@ import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, setThemeMode, applyColorScheme } from '../utils/globalVars';
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
 import { initThemeFromGitHub } from '../utils/theme';
+import {
+  topbarThemePresets,
+  applyMDUIThemeToTopBar,
+  exportTheme,
+  importTheme,
+  opacityToHex,
+  getThemePresetList
+} from '../utils/topbarThemes';
 import { onMounted, ref, computed, reactive } from 'vue';
 import { pyInvoke } from 'tauri-plugin-pytauri-api';
 
 // Reactive state for theme download
 const isDownloadingTheme = ref(false);
+
+// TopBar 主题相关
+const themePresets = ref(getThemePresetList());
 
 // Reactive state for sync operations
 const managementServerUrl = ref(settings.server_url || '');
@@ -1239,6 +1501,185 @@ async function handleImport(format) {
   }
 }
 
+// ============= TopBar 主题定制相关函数 =============
+
+// TopBar 预览样式
+const topbarPreviewStyles = computed(() => {
+  const opacityHex = opacityToHex(settings.topbar_background_opacity);
+  const backgroundColor = `${settings.topbar_background_color}${opacityHex}`;
+
+  return {
+    backgroundColor: backgroundColor,
+    color: settings.topbar_text_color,
+    backdropFilter: `blur(${settings.topbar_blur_strength}px)`,
+    WebkitBackdropFilter: `blur(${settings.topbar_blur_strength}px)`,
+    borderRadius: `${settings.topbar_border_radius}px`,
+    boxShadow: settings.topbar_shadow_enabled === 'true'
+      ? '0 4px 16px rgba(0,0,0,0.1)'
+      : 'none',
+    fontFamily: settings.topbar_font_family,
+    fontWeight: settings.topbar_font_weight,
+    fontSize: `calc(1rem * ${settings.topbar_font_size_multiplier})`,
+    padding: `${Math.round(parseInt(settings.topbar_component_spacing) / 2)}px ${settings.topbar_component_spacing}px`,
+    marginBottom: '1rem'
+  };
+});
+
+// 获取预设预览样式
+function getPresetPreviewStyle(preset) {
+  const opacityHex = opacityToHex(preset.background_opacity);
+  return {
+    backgroundColor: `${preset.background_color}${opacityHex}`,
+    backdropFilter: `blur(${preset.blur_strength}px)`,
+    WebkitBackdropFilter: `blur(${preset.blur_strength}px)`,
+    borderRadius: `${preset.border_radius}px`,
+    boxShadow: preset.shadow_enabled === 'true' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+  };
+}
+
+// 检查预设是否激活
+function isPresetActive(preset) {
+  return (
+    settings.topbar_background_color === preset.background_color &&
+    settings.topbar_background_opacity === preset.background_opacity &&
+    settings.topbar_text_color === preset.text_color
+  );
+}
+
+// 应用预设
+async function applyPreset(preset) {
+  try {
+    // 批量更新 TopBar 主题设置
+    const themeSettings = {
+      topbar_background_color: preset.background_color,
+      topbar_background_opacity: preset.background_opacity,
+      topbar_text_color: preset.text_color,
+      topbar_blur_strength: preset.blur_strength,
+      topbar_border_radius: preset.border_radius,
+      topbar_shadow_enabled: preset.shadow_enabled,
+      topbar_font_family: preset.font_family,
+      topbar_font_weight: preset.font_weight,
+      topbar_font_size_multiplier: preset.font_size_multiplier,
+      topbar_layout: preset.layout,
+      topbar_show_icons: preset.show_icons,
+      topbar_component_spacing: preset.component_spacing
+    };
+
+    // 更新本地设置
+    Object.assign(settings, themeSettings);
+
+    // 保存到后端
+    const success = await saveSettings(themeSettings);
+
+    if (success) {
+      snackbar({ message: `已应用主题预设：${preset.name}`, placement: 'top' });
+    } else {
+      snackbar({ message: '应用预设失败', placement: 'top' });
+    }
+  } catch (error) {
+    console.error('Apply preset error:', error);
+    snackbar({ message: `应用预设失败: ${error}`, placement: 'top' });
+  }
+}
+
+// 应用 MDUI 主题色
+async function applyMDUITheme() {
+  try {
+    const mduiTheme = applyMDUIThemeToTopBar();
+    await applyPreset(mduiTheme);
+  } catch (error) {
+    console.error('Apply MDUI theme error:', error);
+    snackbar({ message: '应用MDUI主题失败', placement: 'top' });
+  }
+}
+
+// 处理 TopBar 设置更改
+async function handleTopbarSettingChange(key, value) {
+  try {
+    settings[key] = value;
+    await saveSetting(key, value);
+    console.log(`TopBar setting updated: ${key} = ${value}`);
+  } catch (error) {
+    console.error(`Failed to update TopBar setting ${key}:`, error);
+    snackbar({ message: '设置更新失败', placement: 'top' });
+  }
+}
+
+// 重置 TopBar 主题
+async function resetTopbarTheme() {
+  try {
+    const defaultPreset = topbarThemePresets.default;
+    await applyPreset(defaultPreset);
+    snackbar({ message: 'TopBar主题已重置为默认', placement: 'top' });
+  } catch (error) {
+    console.error('Reset TopBar theme error:', error);
+    snackbar({ message: '重置失败', placement: 'top' });
+  }
+}
+
+// 导出 TopBar 主题
+async function exportTopbarTheme() {
+  try {
+    const themeJson = exportTheme(settings);
+
+    // 选择保存文件路径
+    const filePath = await save({
+      defaultPath: `TopBar主题_${new Date().toISOString().split('T')[0]}.json`,
+      filters: [{
+        name: 'JSON',
+        extensions: ['json']
+      }]
+    });
+
+    if (!filePath) {
+      return;
+    }
+
+    // 写入文件
+    await writeTextFile(filePath, themeJson);
+    snackbar({ message: `主题已导出到: ${filePath}`, placement: 'top' });
+  } catch (error) {
+    console.error('Export theme error:', error);
+    snackbar({ message: `导出失败: ${error.message}`, placement: 'top' });
+  }
+}
+
+// 导入 TopBar 主题
+async function importTopbarTheme() {
+  try {
+    // 选择文件
+    const filePath = await open({
+      multiple: false,
+      filters: [{
+        name: 'JSON',
+        extensions: ['json']
+      }]
+    });
+
+    if (!filePath) {
+      return;
+    }
+
+    // 读取文件内容
+    const fileContent = await readTextFile(filePath);
+
+    // 解析主题
+    const theme = importTheme(fileContent);
+
+    if (!theme) {
+      snackbar({ message: '主题文件格式无效', placement: 'top' });
+      return;
+    }
+
+    // 应用主题
+    await applyPreset(theme);
+    snackbar({ message: '主题导入成功', placement: 'top' });
+  } catch (error) {
+    console.error('Import theme error:', error);
+    snackbar({ message: `导入失败: ${error.message}`, placement: 'top' });
+  }
+}
+
 onMounted(() => {
   const slider = document.getElementById('topbar-height-slider');
   if (slider) {
@@ -1303,4 +1744,182 @@ code {
   border-radius: 4px;
   font-size: 0.875rem;
 }
+
+/* TopBar 主题定制样式 */
+.topbar-preview {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-left,
+.preview-center,
+.preview-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-center {
+  font-size: 1.2em;
+  font-weight: 500;
+}
+
+.theme-presets {
+  padding: 1rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.preset-card {
+  padding: 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: var(--mdui-color-surface-container);
+}
+
+.preset-card:hover {
+  border-color: var(--mdui-color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.preset-card.preset-active {
+  border-color: var(--mdui-color-primary);
+  background-color: var(--mdui-color-primary-container);
+}
+
+.preset-preview {
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.preset-info {
+  text-align: center;
+}
+
+.preset-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.preset-desc {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.custom-controls {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.control-row label {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.color-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.color-picker-group input[type="color"] {
+  width: 48px;
+  height: 36px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.color-value {
+  font-family: monospace;
+  font-size: 0.875rem;
+  min-width: 80px;
+}
+
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.slider-value {
+  font-family: monospace;
+  font-size: 0.875rem;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .preset-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .control-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .control-row label {
+    min-width: unset;
+  }
+
+  .slider-group {
+    width: 100%;
+  }
+}
+
 </style>
