@@ -5,6 +5,7 @@ import TopBar from '../TopBar/TopBar.vue'
 import Main from '../Main.vue'
 import SchedulePage from '../pages/SchedulePage.vue'
 import AudioMonitor from '../pages/AudioMonitor.vue'
+import Statistics from '../pages/Statistics.vue'
 
 const routes = [
   {
@@ -13,6 +14,7 @@ const routes = [
     children: [
       { path: '', name: 'Home', component: Home },
       { path: '/schedule', name: 'SchedulePage', component: SchedulePage },
+      { path: '/statistics', name: 'Statistics', component: Statistics },
       { path: '/settings', name: 'Settings', component: Settings },
       { path: '/audio', name: 'AudioMonitor', component: AudioMonitor }
     ]
