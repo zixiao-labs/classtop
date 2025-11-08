@@ -13,6 +13,28 @@ ClassTop is a desktop class schedule manager and display tool built with Tauri 2
 
 ### Environment Setup
 
+**IMPORTANT: Clone Required Subprojects**
+
+Before setting up the development environment, clone these two subprojects into your workspace:
+
+```bash
+# Clone Management Server (enterprise sync backend)
+git clone https://github.com/Zixiao-System/Classtop-Management-Server.git
+
+# Clone SDK (Python SDK for ClassTop)
+git clone https://github.com/Zixiao-System/classtop-sdk.git
+```
+
+These subprojects should be cloned as sibling directories to the main ClassTop repository:
+```
+workspace/
+├── classtop/                      # Main repository (this one)
+├── Classtop-Management-Server/    # Management server subproject
+└── Classtop-SDK/                  # Python SDK subproject
+```
+
+**Install Dependencies:**
+
 ```bash
 # Install Node.js dependencies
 npm install
