@@ -1,6 +1,6 @@
 <template>
-    <main class="top-bar-container" id="top-bar-container" v-show="topbarType === 'full'" :style="topbarStyles">
-        <div class="top-bar-content" :style="contentStyles">
+    <main class="top-bar-container" id="top-bar-container" v-show="topbarType === 'full'">
+        <div class="top-bar-content">
             <div class="left-section" v-if="settings.show_schedule">
                 <Schedule :key="scheduleKey" type="full" @classStart="handleClassStart" @classEnd="handleClassEnd" />
             </div>
@@ -39,7 +39,6 @@ import Clock from './components/Clock.vue';
 import Schedule, { progress as classProgress } from './components/Schedule.vue';
 import { loadSettings, settings } from '../utils/globalVars';
 import { mouseOn, init as initCollapse, reset as resetCollapse } from '../utils/collapse';
-import { opacityToHex } from '../utils/topbarThemes';
 
 // 用于强制重载 Schedule 组件的 key
 const scheduleKey = ref(Date.now());
@@ -47,44 +46,6 @@ const scheduleKey = ref(Date.now());
 // 同步状态
 const syncStatus = ref(null);
 let syncStatusInterval = null;
-
-// TopBar 动态样式
-const topbarStyles = computed(() => {
-  // 将透明度转换为 hex
-  const opacityHex = opacityToHex(settings.topbar_background_opacity);
-  const backgroundColor = `${settings.topbar_background_color}${opacityHex}`;
-
-  return {
-    backgroundColor: backgroundColor,
-    color: settings.topbar_text_color,
-    backdropFilter: `blur(${settings.topbar_blur_strength}px)`,
-    WebkitBackdropFilter: `blur(${settings.topbar_blur_strength}px)`,
-    borderRadius: `0 0 ${settings.topbar_border_radius}px ${settings.topbar_border_radius}px`,
-    boxShadow: settings.topbar_shadow_enabled === 'true'
-      ? '0 4px 16px rgba(0,0,0,0.1)'
-      : 'none',
-    fontFamily: settings.topbar_font_family,
-    fontWeight: settings.topbar_font_weight,
-    fontSize: `calc(1rem * ${settings.topbar_font_size_multiplier})`
-  };
-});
-
-// TopBar 内容区域样式
-const contentStyles = computed(() => {
-  const spacing = `${settings.topbar_component_spacing}px`;
-  const halfSpacing = `${Math.round(parseInt(settings.topbar_component_spacing) / 2)}px`;
-
-  return {
-    padding: `${halfSpacing} ${spacing}`,
-    gap: spacing
-  };
-});
-
-// 是否显示图标
-const showIcons = computed(() => settings.topbar_show_icons === 'true');
-
-// 布局模式
-const layoutMode = computed(() => settings.topbar_layout);
 
 // 计算同步状态的工具提示文本
 const syncStatusTooltip = computed(() => {
@@ -304,17 +265,18 @@ export const updateTopbarWindowSize = async () => {
 .top-bar-container {
     width: 100%;
     height: 100vh;
+    backdrop-filter: blur(10px);
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    /* 动态样式通过 :style 绑定应用 */
-    /* 不再在这里设置 backdrop-filter, border-radius, box-shadow */
 }
 
 .top-bar-content {
     display: flex;
     align-items: center;
     height: 100%;
+    padding: 0 20px;
     position: relative;
-    /* padding 和 gap 通过 :style 动态应用 */
 }
 
 .left-section {

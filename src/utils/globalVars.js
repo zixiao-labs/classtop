@@ -46,20 +46,6 @@ export const settings = reactive({
   sync_direction: 'upload', // 'upload' | 'download' | 'bidirectional'
   sync_strategy: 'server_wins', // 'server_wins' | 'local_wins' | 'newest_wins'
 
-  // TopBar 主题设置
-  topbar_background_color: '#1976d2',
-  topbar_background_opacity: '90',
-  topbar_text_color: '#ffffff',
-  topbar_blur_strength: '10',
-  topbar_border_radius: '12',
-  topbar_shadow_enabled: 'true',
-  topbar_font_family: 'system-ui',
-  topbar_font_weight: '400',
-  topbar_font_size_multiplier: '1.0',
-  topbar_layout: 'default',
-  topbar_show_icons: 'true',
-  topbar_component_spacing: '16',
-
   // 动态计算的值（不持久化）
   current_week: 1,
 
@@ -114,20 +100,6 @@ export async function loadSettings() {
     settings.client_name = allSettings.client_name || '';
     settings.sync_direction = allSettings.sync_direction || 'upload';
     settings.sync_strategy = allSettings.sync_strategy || 'server_wins';
-
-    // TopBar 主题设置
-    settings.topbar_background_color = allSettings.topbar_background_color || '#1976d2';
-    settings.topbar_background_opacity = allSettings.topbar_background_opacity || '90';
-    settings.topbar_text_color = allSettings.topbar_text_color || '#ffffff';
-    settings.topbar_blur_strength = allSettings.topbar_blur_strength || '10';
-    settings.topbar_border_radius = allSettings.topbar_border_radius || '12';
-    settings.topbar_shadow_enabled = allSettings.topbar_shadow_enabled || 'true';
-    settings.topbar_font_family = allSettings.topbar_font_family || 'system-ui';
-    settings.topbar_font_weight = allSettings.topbar_font_weight || '400';
-    settings.topbar_font_size_multiplier = allSettings.topbar_font_size_multiplier || '1.0';
-    settings.topbar_layout = allSettings.topbar_layout || 'default';
-    settings.topbar_show_icons = allSettings.topbar_show_icons || 'true';
-    settings.topbar_component_spacing = allSettings.topbar_component_spacing || '16';
 
     settings.loaded = true;
 

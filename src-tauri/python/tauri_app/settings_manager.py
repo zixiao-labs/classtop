@@ -65,20 +65,6 @@ class SettingsManager:
         'reminder_enabled': 'true',  # 是否启用课程提醒
         'reminder_minutes': '10',  # 提前多少分钟提醒（可选: 5, 10, 15, 30）
         'reminder_sound': 'true',  # 是否播放提示音
-
-        # TopBar 主题设置
-        'topbar_background_color': '#1976d2',  # 背景颜色
-        'topbar_background_opacity': '90',  # 背景透明度 (0-100)
-        'topbar_text_color': '#ffffff',  # 文字颜色
-        'topbar_blur_strength': '10',  # 模糊强度 (0-30px)
-        'topbar_border_radius': '12',  # 边框圆角 (0-30px)
-        'topbar_shadow_enabled': 'true',  # 是否启用阴影
-        'topbar_font_family': 'system-ui',  # 字体族
-        'topbar_font_weight': '400',  # 字体粗细 (300-900)
-        'topbar_font_size_multiplier': '1.0',  # 字体大小倍数 (0.8-1.5)
-        'topbar_layout': 'default',  # 布局模式: default, minimal, centered
-        'topbar_show_icons': 'true',  # 是否显示图标
-        'topbar_component_spacing': '16',  # 组件间距 (8-50px)
     }
 
     def __init__(self, db_path: Path, event_handler):
