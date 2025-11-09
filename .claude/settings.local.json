@@ -4,7 +4,9 @@
       "Bash(git push:*)",
       "mcp__github__issue_read",
       "mcp__github__pull_request_read",
-      "Bash(python3 -m py_compile:*)"
+      "Bash(python3 -m py_compile:*)",
+      "mcp__github__get_file_contents",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
