@@ -17,6 +17,9 @@ from . import logger as _logger
 class SyncClient:
     """服务器同步客户端"""
 
+    # Valid sync strategies
+    VALID_STRATEGIES = {"server_wins", "local_wins", "newest_wins"}
+
     def __init__(self, settings_manager, schedule_manager):
         self.settings_manager = settings_manager
         self.schedule_manager = schedule_manager
@@ -24,6 +27,43 @@ class SyncClient:
         self.sync_thread = None
         self.is_running = False
         self.uuid_lock = threading.Lock()  # 用于 UUID 生成的线程锁
+
+    def _validate_strategy(self, strategy: str) -> bool:
+        """Validate sync strategy
+
+        Args:
+            strategy: Strategy to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        return strategy in self.VALID_STRATEGIES
+
+    def _validate_server_url(self, server_url: str) -> bool:
+        """Validate server URL uses HTTPS
+
+        Args:
+            server_url: Server URL to validate
+
+        Returns:
+            True if valid (HTTPS or localhost), False otherwise
+        """
+        if not server_url:
+            return False
+
+        # Allow localhost and 127.0.0.1 for testing
+        if "localhost" in server_url or "127.0.0.1" in server_url:
+            return True
+
+        # Enforce HTTPS for remote servers
+        if not server_url.startswith("https://"):
+            self.logger.log_message(
+                "error",
+                f"Server URL must use HTTPS for security: {server_url}"
+            )
+            return False
+
+        return True
 
     def _log_sync_history(self, direction: str, status: str, message: str,
                          courses_synced: int = 0, schedule_synced: int = 0,
@@ -49,6 +89,10 @@ class SyncClient:
             server_url = self.settings_manager.get_setting("server_url", "")
             if not server_url:
                 self.logger.log_message("warning", "未配置服务器地址")
+                return False
+
+            # Validate server URL uses HTTPS
+            if not self._validate_server_url(server_url):
                 return False
 
             # 获取或生成客户端 UUID（线程安全）
@@ -101,6 +145,10 @@ class SyncClient:
                 self.logger.log_message(
                     "warning", "服务器地址或客户端 UUID 未配置"
                 )
+                return False
+
+            # Validate server URL uses HTTPS
+            if not self._validate_server_url(server_url):
                 return False
 
             # 获取所有课程
@@ -200,6 +248,10 @@ class SyncClient:
             server_url = self.settings_manager.get_setting("server_url", "")
             if not server_url:
                 return {"success": False, "message": "未配置服务器地址"}
+
+            # Validate server URL uses HTTPS
+            if not self._validate_server_url(server_url):
+                return {"success": False, "message": "服务器地址必须使用HTTPS协议"}
 
             url = f"{server_url.rstrip('/')}/api/health"
             response = requests.get(url, timeout=5)
@@ -323,6 +375,13 @@ class SyncClient:
                 return {
                     "success": False,
                     "message": "服务器地址或客户端 UUID 未配置"
+                }
+
+            # Validate server URL uses HTTPS
+            if not self._validate_server_url(server_url):
+                return {
+                    "success": False,
+                    "message": "服务器地址必须使用HTTPS协议"
                 }
 
             self.logger.log_message("info", f"从服务器下载数据: {client_uuid}")
@@ -510,6 +569,15 @@ class SyncClient:
             - schedule_entries: List[Dict]
         """
         try:
+            # Validate strategy
+            if not self._validate_strategy(strategy):
+                self.logger.log_message(
+                    "warning",
+                    f"Invalid strategy '{strategy}', using 'server_wins' instead. "
+                    f"Valid strategies: {', '.join(self.VALID_STRATEGIES)}"
+                )
+                strategy = "server_wins"
+
             self.logger.log_message("info", f"合并数据，策略: {strategy}")
 
             local_courses = local_data.get("courses", [])
@@ -689,6 +757,16 @@ class SyncClient:
             - entries_updated: int
         """
         try:
+            # Validate strategy
+            if not self._validate_strategy(strategy):
+                return {
+                    "success": False,
+                    "message": f"Invalid sync strategy '{strategy}'. Valid strategies: {', '.join(self.VALID_STRATEGIES)}",
+                    "conflicts_found": 0,
+                    "courses_updated": 0,
+                    "entries_updated": 0
+                }
+
             self.logger.log_message("info", f"开始双向同步，策略: {strategy}")
 
             # Step 1: Download from server

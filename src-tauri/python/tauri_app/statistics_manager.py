@@ -5,6 +5,7 @@ Handles course statistics calculation and attendance tracking
 
 import json
 import sqlite3
+import threading
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta, date
 from contextlib import contextmanager
@@ -20,6 +21,7 @@ class StatisticsManager:
         self.db_path = db_path
         self.logger = _logger
         self.event_handler = event_handler
+        self._write_lock = threading.Lock()  # Thread safety for write operations
 
     @contextmanager
     def get_connection(self):
@@ -38,6 +40,39 @@ class StatisticsManager:
                 conn.close()
                 self.logger.log_message("debug", "Database connection closed")
 
+    def _validate_date_format(self, date_str: str) -> bool:
+        """Validate date string is in YYYY-MM-DD format
+
+        Args:
+            date_str: Date string to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    def _course_exists(self, course_id: int) -> bool:
+        """Check if a course exists in the database
+
+        Args:
+            course_id: Course ID to check
+
+        Returns:
+            True if course exists, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT 1 FROM courses WHERE id = ?", (course_id,))
+                return cur.fetchone() is not None
+        except Exception as e:
+            self.logger.log_message("error", f"Failed to check course existence: {e}")
+            return False
+
     # Attendance Tracking Methods
     def mark_attendance(self, course_id: int, schedule_entry_id: int,
                        date_str: str, attended: bool, notes: Optional[str] = None) -> int:
@@ -54,63 +89,74 @@ class StatisticsManager:
         Returns:
             Session ID if successful, -1 if failed
         """
-        try:
-            with self.get_connection() as conn:
-                cur = conn.cursor()
-
-                # Get schedule entry details
-                cur.execute("""
-                    SELECT start_time, end_time FROM schedule WHERE id = ?
-                """, (schedule_entry_id,))
-                entry = cur.fetchone()
-
-                if not entry:
-                    self.logger.log_message("error", f"Schedule entry {schedule_entry_id} not found")
-                    return -1
-
-                # Check if session already exists
-                cur.execute("""
-                    SELECT id FROM course_sessions
-                    WHERE course_id = ? AND schedule_entry_id = ? AND date = ?
-                """, (course_id, schedule_entry_id, date_str))
-                existing = cur.fetchone()
-
-                if existing:
-                    # Update existing session
-                    cur.execute("""
-                        UPDATE course_sessions
-                        SET attended = ?, notes = ?
-                        WHERE id = ?
-                    """, (1 if attended else 0, notes, existing['id']))
-                    session_id = existing['id']
-                    self.logger.log_message("info", f"Updated attendance for session {session_id}")
-                else:
-                    # Insert new session
-                    cur.execute("""
-                        INSERT INTO course_sessions
-                        (course_id, schedule_entry_id, date, start_time, end_time, attended, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (course_id, schedule_entry_id, date_str, entry['start_time'],
-                          entry['end_time'], 1 if attended else 0, notes))
-                    session_id = cur.lastrowid
-                    self.logger.log_message("info", f"Created attendance record for session {session_id}")
-
-                conn.commit()
-
-                # Emit event if handler is available
-                if self.event_handler:
-                    self.event_handler.emit_custom_event("attendance-updated", {
-                        "session_id": session_id,
-                        "course_id": course_id,
-                        "date": date_str,
-                        "attended": attended
-                    })
-
-                return session_id
-
-        except Exception as e:
-            self.logger.log_message("error", f"Failed to mark attendance: {e}")
+        # Input validation
+        if not self._validate_date_format(date_str):
+            self.logger.log_message("error", f"Invalid date format: {date_str}, expected YYYY-MM-DD")
             return -1
+
+        if not self._course_exists(course_id):
+            self.logger.log_message("error", f"Course {course_id} does not exist")
+            return -1
+
+        # Use lock for write operation to prevent race conditions
+        with self._write_lock:
+            try:
+                with self.get_connection() as conn:
+                    cur = conn.cursor()
+
+                    # Get schedule entry details
+                    cur.execute("""
+                        SELECT start_time, end_time FROM schedule WHERE id = ?
+                    """, (schedule_entry_id,))
+                    entry = cur.fetchone()
+
+                    if not entry:
+                        self.logger.log_message("error", f"Schedule entry {schedule_entry_id} not found")
+                        return -1
+
+                    # Check if session already exists
+                    cur.execute("""
+                        SELECT id FROM course_sessions
+                        WHERE course_id = ? AND schedule_entry_id = ? AND date = ?
+                    """, (course_id, schedule_entry_id, date_str))
+                    existing = cur.fetchone()
+
+                    if existing:
+                        # Update existing session
+                        cur.execute("""
+                            UPDATE course_sessions
+                            SET attended = ?, notes = ?
+                            WHERE id = ?
+                        """, (1 if attended else 0, notes, existing['id']))
+                        session_id = existing['id']
+                        self.logger.log_message("info", f"Updated attendance for session {session_id}")
+                    else:
+                        # Insert new session
+                        cur.execute("""
+                            INSERT INTO course_sessions
+                            (course_id, schedule_entry_id, date, start_time, end_time, attended, notes)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (course_id, schedule_entry_id, date_str, entry['start_time'],
+                              entry['end_time'], 1 if attended else 0, notes))
+                        session_id = cur.lastrowid
+                        self.logger.log_message("info", f"Created attendance record for session {session_id}")
+
+                    conn.commit()
+
+                    # Emit event if handler is available
+                    if self.event_handler:
+                        self.event_handler.emit_custom_event("attendance-updated", {
+                            "session_id": session_id,
+                            "course_id": course_id,
+                            "date": date_str,
+                            "attended": attended
+                        })
+
+                    return session_id
+
+            except Exception as e:
+                self.logger.log_message("error", f"Failed to mark attendance: {e}")
+                return -1
 
     def get_attendance_history(self, course_id: Optional[int] = None,
                                start_date: Optional[str] = None,
@@ -175,27 +221,29 @@ class StatisticsManager:
         Returns:
             True if successful, False otherwise
         """
-        try:
-            with self.get_connection() as conn:
-                cur = conn.cursor()
-                cur.execute("DELETE FROM course_sessions WHERE id = ?", (session_id,))
-                conn.commit()
+        # Use lock for write operation to prevent race conditions
+        with self._write_lock:
+            try:
+                with self.get_connection() as conn:
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM course_sessions WHERE id = ?", (session_id,))
+                    conn.commit()
 
-                success = cur.rowcount > 0
-                if success:
-                    self.logger.log_message("info", f"Deleted attendance record {session_id}")
-                    if self.event_handler:
-                        self.event_handler.emit_custom_event("attendance-deleted", {
-                            "session_id": session_id
-                        })
-                else:
-                    self.logger.log_message("warning", f"Attendance record {session_id} not found")
+                    success = cur.rowcount > 0
+                    if success:
+                        self.logger.log_message("info", f"Deleted attendance record {session_id}")
+                        if self.event_handler:
+                            self.event_handler.emit_custom_event("attendance-deleted", {
+                                "session_id": session_id
+                            })
+                    else:
+                        self.logger.log_message("warning", f"Attendance record {session_id} not found")
 
-                return success
+                    return success
 
-        except Exception as e:
-            self.logger.log_message("error", f"Failed to delete attendance record: {e}")
-            return False
+            except Exception as e:
+                self.logger.log_message("error", f"Failed to delete attendance record: {e}")
+                return False
 
     # Statistics Calculation Methods
     def get_total_course_hours(self, start_week: Optional[int] = None,
