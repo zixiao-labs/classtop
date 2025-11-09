@@ -25,7 +25,7 @@ git clone https://github.com/Zixiao-System/Classtop-Management-Server.git
 git clone https://github.com/Zixiao-System/classtop-sdk.git
 ```
 
-These subprojects should be cloned as sibling directories to the main ClassTop repository:
+These subprojects shouldbe cloned as sibling directories to the main ClassTop repository:
 ```
 workspace/
 ├── classtop/                      # Main repository (this one)

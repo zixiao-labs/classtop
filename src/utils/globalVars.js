@@ -306,4 +306,7 @@ export const appState = reactive({
 
   // 加载状态
   isLoading: false,
+
+  // 恐怖模式（彩蛋，重启应用后恢复）
+  horrorMode: false,
 });

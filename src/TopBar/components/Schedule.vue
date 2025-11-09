@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import {
   getScheduleByDay,
   getScheduleForWeek,
@@ -20,6 +20,7 @@ import {
   getTodayWeekday
 } from '../../utils/schedule.js';
 import { listen } from '@tauri-apps/api/event';
+import { appState } from '../../utils/globalVars';
 
 const props = defineProps({
   type: {
@@ -29,6 +30,60 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['classStart', 'classEnd']);
+
+// 恐怖模式诡异文字列表
+const horrorTexts = [
+  '不要回头',
+  '她在身后',
+  '第四节课不存在',
+  '这不是真的',
+  '你看到了吗',
+  '别告诉任何人',
+  '时间停止了',
+  '教室里有人',
+  '窗外有双眼睛',
+  '你不应该来这里',
+  '已经太晚了',
+  '他们都知道了',
+  '一切都是假的',
+  '别相信时钟',
+  '没人能离开',
+  '你能听到吗',
+  '墙壁在移动',
+  '影子不对劲',
+  '灯光在闪烁',
+  '你认识我吗'
+];
+
+// 获取随机诡异文字
+const getRandomHorrorText = () => {
+  return horrorTexts[Math.floor(Math.random() * horrorTexts.length)];
+};
+
+// 格式化课程名称（恐怖模式下替换）
+const formatCourseName = (name) => {
+  if (appState.horrorMode) {
+    return getRandomHorrorText();
+  }
+  return name;
+};
+
+// 格式化时间显示（恐怖模式下显示异常）
+const formatTime = (time) => {
+  if (appState.horrorMode) {
+    return '??:??';
+  }
+  return time;
+};
+
+// 格式化剩余时间（恐怖模式下显示异常）
+const formatHorrorRemainingTime = (seconds) => {
+  if (appState.horrorMode) {
+    const options = ['还剩???', '永远', '无尽', '未知', '???秒', '∞'];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  return formatRemainingTime(seconds);
+};
 
 // 课程数据缓存
 const todaySchedule = ref([]);
@@ -162,13 +217,17 @@ const updateDisplay = () => {
       // 即将结束，提前切换到课间显示
       isBreakTime.value = true;
       const remainingSeconds = timeToSeconds(todayNext.start_time) - currentSeconds;
-      const remainingTimeStr = formatRemainingTime(remainingSeconds);
+      const remainingTimeStr = formatHorrorRemainingTime(remainingSeconds);
       const nextLocation = todayNext.location ? ` @ ${todayNext.location}` : '';
-      displayText.value = `下一节: ${todayNext.name}${nextLocation} (${remainingTimeStr}后)`;
+      const nextName = formatCourseName(todayNext.name);
+      displayText.value = `下一节: ${nextName}${nextLocation} (${remainingTimeStr}后)`;
       rewidthProgressBar();
     } else {
       const locationText = location ? ` @ ${location}` : '';
-      displayText.value = `${name}${locationText} (${start_time}-${end_time})`;
+      const courseName = formatCourseName(name);
+      const startTimeStr = formatTime(start_time);
+      const endTimeStr = formatTime(end_time);
+      displayText.value = `${courseName}${locationText} (${startTimeStr}-${endTimeStr})`;
       rewidthProgressBar();
     }
 
@@ -179,15 +238,17 @@ const updateDisplay = () => {
     const remainingSeconds = timeToSeconds(todayNext.start_time) - currentSeconds;
 
     if (remainingSeconds > 0) {
-      const remainingTimeStr = formatRemainingTime(remainingSeconds);
+      const remainingTimeStr = formatHorrorRemainingTime(remainingSeconds);
       const nextLocation = todayNext.location ? ` @ ${todayNext.location}` : '';
-      displayText.value = `下一节: ${todayNext.name}${nextLocation} (${remainingTimeStr}后)`;
+      const nextName = formatCourseName(todayNext.name);
+      displayText.value = `下一节: ${nextName}${nextLocation} (${remainingTimeStr}后)`;
       rewidthProgressBar();
       updateProgress(calculateProgress());
     } else {
       // 应该已经开始了，触发刷新
       const nextLocation = todayNext.location ? ` @ ${todayNext.location}` : '';
-      displayText.value = `${todayNext.name}${nextLocation} (即将开始)`;
+      const nextName = formatCourseName(todayNext.name);
+      displayText.value = `${nextName}${nextLocation} (即将开始)`;
       rewidthProgressBar();
       updateProgress(0);
       loadScheduleData();
@@ -197,14 +258,15 @@ const updateDisplay = () => {
     isBreakTime.value = false;
     const dayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     const dayName = dayNames[nextAcrossWeek.day_of_week] || '未知';
-    displayText.value = `今日课程结束 - 下一节: ${dayName} ${nextAcrossWeek.name}`;
+    const nextName = formatCourseName(nextAcrossWeek.name);
+    displayText.value = appState.horrorMode ? getRandomHorrorText() : `今日课程结束 - 下一节: ${dayName} ${nextName}`;
     rewidthProgressBar();
     current = null;
     updateProgress(0);
   } else {
     // 没有任何课程
     isBreakTime.value = false;
-    displayText.value = '暂无课程';
+    displayText.value = appState.horrorMode ? getRandomHorrorText() : '暂无课程';
     rewidthProgressBar();
     updateProgress(0);
   }

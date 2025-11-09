@@ -476,6 +476,25 @@
       </mdui-list>
     </mdui-card>
 
+    <!-- 彩蛋区域 -->
+    <mdui-card class="settings-group" style="background: linear-gradient(135deg, rgba(139, 0, 0, 0.05), rgba(0, 0, 0, 0.05));">
+      <span class="group-title" style="opacity: 0.6;">???</span>
+      <mdui-divider></mdui-divider>
+      <mdui-list>
+        <mdui-list-item icon="warning" rounded nonclickable>
+          <div style="display: flex; justify-content: center; width: 100%; padding: 1rem 0;">
+            <mdui-button
+              variant="outlined"
+              style="color: var(--mdui-color-error); border-color: var(--mdui-color-error); min-width: 200px;"
+              @click="handleHorrorMode"
+            >
+              {{ appState.horrorMode ? '关闭恐怖模式' : '千万别点' }}
+            </mdui-button>
+          </div>
+        </mdui-list-item>
+      </mdui-list>
+    </mdui-card>
+
     <!-- 操作按钮 -->
     <div class="actions">
       <mdui-button variant="outlined" @click="handleResetSettings">重置所有设置</mdui-button>
@@ -489,7 +508,7 @@ import { snackbar } from 'mdui';
 import { writeText, readText } from '@tauri-apps/plugin-clipboard-manager';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
-import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, setThemeMode, applyColorScheme } from '../utils/globalVars';
+import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, setThemeMode, applyColorScheme, appState } from '../utils/globalVars';
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
 import { initThemeFromGitHub } from '../utils/theme';
 import { onMounted, ref, computed, reactive } from 'vue';
@@ -1236,6 +1255,23 @@ async function handleImport(format) {
   } catch (error) {
     console.error('Import error:', error);
     snackbar({ message: `导入失败: ${error.message}`, placement: 'top' });
+  }
+}
+
+// ============= 恐怖模式彩蛋 =============
+async function handleHorrorMode() {
+  appState.horrorMode = !appState.horrorMode;
+
+  if (appState.horrorMode) {
+    snackbar({
+      message: '你不应该点这个按钮的...',
+      placement: 'top'
+    });
+  } else {
+    snackbar({
+      message: '恐怖模式已关闭',
+      placement: 'top'
+    });
   }
 }
 

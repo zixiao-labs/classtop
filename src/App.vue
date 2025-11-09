@@ -2,6 +2,7 @@
 import { onMounted } from 'vue';
 import { initReminderNotifications } from './utils/notifications';
 import { initThemeOnStartup } from './utils/theme';
+import { appState } from './utils/globalVars';
 
 // Initialize on app start
 onMounted(async () => {
@@ -21,7 +22,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <router-view />
+  <router-view :class="{ 'horror-mode-global': appState.horrorMode }" />
 </template>
 
 <style>
@@ -59,5 +60,29 @@ input, textarea, [contenteditable] {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
+}
+
+/* 恐怖模式全局样式 */
+.horror-mode-global {
+  animation: horror-glitch 5s ease-in-out infinite;
+  filter: saturate(0.5) brightness(0.8);
+}
+
+.horror-mode-global * {
+  text-shadow: 2px 2px 4px rgba(139, 0, 0, 0.5);
+}
+
+@keyframes horror-glitch {
+  0%, 90%, 100% {
+    filter: saturate(0.5) brightness(0.8);
+  }
+  92%, 96% {
+    filter: saturate(0.5) brightness(0.8) hue-rotate(180deg);
+    transform: skew(0.5deg);
+  }
+  94% {
+    filter: saturate(0.5) brightness(1.2);
+    transform: skew(-0.5deg);
+  }
 }
 </style>

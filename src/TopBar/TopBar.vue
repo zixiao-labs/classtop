@@ -1,5 +1,5 @@
 <template>
-    <main class="top-bar-container" id="top-bar-container" v-show="topbarType === 'full'">
+    <main class="top-bar-container" :class="{ 'horror-mode': appState.horrorMode }" id="top-bar-container" v-show="topbarType === 'full'">
         <div class="top-bar-content">
             <div class="left-section" v-if="settings.show_schedule">
                 <Schedule :key="scheduleKey" type="full" @classStart="handleClassStart" @classEnd="handleClassEnd" />
@@ -37,7 +37,7 @@ import { listen } from '@tauri-apps/api/event';
 import { pyInvoke } from 'tauri-plugin-pytauri-api';
 import Clock from './components/Clock.vue';
 import Schedule, { progress as classProgress } from './components/Schedule.vue';
-import { loadSettings, settings } from '../utils/globalVars';
+import { loadSettings, settings, appState } from '../utils/globalVars';
 import { mouseOn, init as initCollapse, reset as resetCollapse } from '../utils/collapse';
 
 // 用于强制重载 Schedule 组件的 key
@@ -269,6 +269,30 @@ export const updateTopbarWindowSize = async () => {
     border-radius: 0 0 15px 15px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    transition: all 0.5s ease;
+}
+
+/* 恐怖模式样式 */
+.top-bar-container.horror-mode {
+    background: linear-gradient(135deg, rgba(139, 0, 0, 0.3), rgba(0, 0, 0, 0.5));
+    backdrop-filter: blur(10px) saturate(0.5) brightness(0.6);
+    box-shadow: 0 0 20px rgba(139, 0, 0, 0.5), 0 0 40px rgba(255, 0, 0, 0.3);
+    animation: horror-pulse 3s ease-in-out infinite, horror-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes horror-pulse {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(139, 0, 0, 0.5), 0 0 40px rgba(255, 0, 0, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(139, 0, 0, 0.7), 0 0 60px rgba(255, 0, 0, 0.5);
+    }
+}
+
+@keyframes horror-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
+    20%, 40%, 60%, 80% { transform: translateX(1px); }
 }
 
 .top-bar-content {
