@@ -26,6 +26,7 @@ import router from './router';
 const items = [
     { icon: 'home', value: '/', label: '主页' },
     { icon: 'class', value: '/schedule', label: '课程表' },
+    { icon: 'bar_chart', value: '/statistics', label: '统计' },
     { icon: 'graphic_eq', value: '/audio', label: '音量监控' },
     { icon: 'settings', value: '/settings', label: '设置' },
 ];

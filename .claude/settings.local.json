@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git push:*)",
       "mcp__github__issue_read",
-      "mcp__github__pull_request_read"
+      "mcp__github__pull_request_read",
+      "Bash(python3 -m py_compile:*)"
     ],
     "deny": [],
     "ask": []

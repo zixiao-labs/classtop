@@ -71,8 +71,41 @@
             placeholder="http://192.168.1.100:8765">
           </mdui-text-field>
         </mdui-list-item>
+
+        <!-- Sync Direction Selector -->
+        <mdui-list-item icon="sync_alt" rounded nonclickable>
+          同步方向
+          <mdui-segmented-button-group selects="single" :value="settings.sync_direction"
+            @change="handleSyncDirectionChange" slot="end-icon">
+            <mdui-segmented-button value="upload">
+              <mdui-icon slot="icon" name="upload"></mdui-icon>
+              上传
+            </mdui-segmented-button>
+            <mdui-segmented-button value="download">
+              <mdui-icon slot="icon" name="download"></mdui-icon>
+              下载
+            </mdui-segmented-button>
+            <mdui-segmented-button value="bidirectional">
+              <mdui-icon slot="icon" name="sync"></mdui-icon>
+              双向
+            </mdui-segmented-button>
+          </mdui-segmented-button-group>
+        </mdui-list-item>
+
+        <!-- Conflict Resolution Strategy (only for bidirectional) -->
+        <mdui-list-item v-if="settings.sync_direction === 'bidirectional'" icon="rule" rounded nonclickable>
+          冲突解决策略
+          <mdui-select variant="filled" :value="settings.sync_strategy" @change="handleSyncStrategyChange"
+            slot="end-icon" style="width: 200px;">
+            <mdui-menu-item value="server_wins">服务器优先</mdui-menu-item>
+            <mdui-menu-item value="local_wins">本地优先</mdui-menu-item>
+            <mdui-menu-item value="newest_wins">最新优先</mdui-menu-item>
+          </mdui-select>
+        </mdui-list-item>
+
+        <!-- Sync Buttons -->
         <mdui-list-item rounded nonclickable>
-          <div style="display: flex; gap: 8px; width: 100%;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%;">
             <mdui-button variant="outlined" icon="wifi_find" @click="testConnection"
               :loading="isTestingConnection">
               测试连接
@@ -81,25 +114,205 @@
               :loading="isRegistering">
               注册客户端
             </mdui-button>
-            <mdui-button variant="filled" icon="sync" @click="syncNow"
+            <mdui-button variant="filled" :icon="syncButtonIcon" @click="performSync"
               :loading="isSyncing" :disabled="settings.sync_enabled !== 'true'">
-              立即同步
+              {{ syncButtonText }}
+            </mdui-button>
+            <mdui-button variant="outlined" icon="search" @click="checkConflicts"
+              :loading="isCheckingConflicts">
+              检查冲突
+            </mdui-button>
+            <mdui-button variant="outlined" icon="refresh" @click="forceSyncNow"
+              :loading="isForceSyncing">
+              强制完整同步
             </mdui-button>
           </div>
         </mdui-list-item>
+
+        <!-- Sync Status Display -->
         <mdui-list-item v-if="syncStatus" rounded nonclickable>
           <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px;"
-            :style="{ backgroundColor: syncStatus.success ? 'var(--mdui-color-surface-container)' : 'var(--mdui-color-error-container)' }">
-            <mdui-icon :name="syncStatus.success ? 'check_circle' : 'error'"
-              :style="{ color: syncStatus.success ? 'var(--mdui-color-primary)' : 'var(--mdui-color-error)' }">
-            </mdui-icon>
-            <span :style="{ color: syncStatus.success ? 'var(--mdui-color-on-surface)' : 'var(--mdui-color-on-error-container)' }">
-              {{ syncStatus.message }}
-            </span>
+            :style="{ backgroundColor: syncStatusColor }">
+            <mdui-icon :name="syncStatusIcon" :style="{ color: syncStatusIconColor }"></mdui-icon>
+            <div style="flex: 1;">
+              <div :style="{ color: syncStatusTextColor, fontWeight: 500 }">
+                {{ syncStatus.message }}
+              </div>
+              <div v-if="lastSyncTime" style="font-size: 0.875rem; opacity: 0.7; margin-top: 4px;">
+                {{ lastSyncTime }}
+              </div>
+            </div>
           </div>
         </mdui-list-item>
       </mdui-list>
+
+      <!-- Sync History Section -->
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
+          <span class="group-title" style="font-size: 1.25rem;">同步历史</span>
+          <mdui-button-icon icon="refresh" @click="loadSyncHistory" :loading="isLoadingHistory"></mdui-button-icon>
+        </div>
+        <mdui-divider style="margin: 0.3rem 0 0.8rem 0;"></mdui-divider>
+
+        <mdui-list v-if="syncHistory.length > 0">
+          <mdui-collapse accordion>
+            <mdui-collapse-item v-for="entry in syncHistory" :key="entry.id">
+              <div slot="header" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 0;">
+                <mdui-icon :name="getSyncDirectionIcon(entry.direction)"
+                  :style="{ color: 'var(--mdui-color-primary)' }"></mdui-icon>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="font-weight: 500;">{{ formatTimestamp(entry.timestamp) }}</span>
+                    <mdui-badge :variant="getSyncStatusVariant(entry.status)">
+                      {{ getSyncStatusText(entry.status) }}
+                    </mdui-badge>
+                  </div>
+                  <div style="font-size: 0.875rem; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ entry.message }}
+                  </div>
+                </div>
+                <div style="text-align: right; font-size: 0.875rem; opacity: 0.7;">
+                  <div>课程: {{ entry.courses_synced }}</div>
+                  <div>条目: {{ entry.schedule_synced }}</div>
+                  <div v-if="entry.conflicts_found > 0" style="color: var(--mdui-color-warning);">
+                    冲突: {{ entry.conflicts_found }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Expanded detail view -->
+              <div style="padding: 12px; background-color: var(--mdui-color-surface-container); border-radius: 8px; margin: 8px 0;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 0.875rem;">
+                  <div>
+                    <div style="opacity: 0.7; margin-bottom: 4px;">时间戳</div>
+                    <div>{{ entry.timestamp }}</div>
+                  </div>
+                  <div>
+                    <div style="opacity: 0.7; margin-bottom: 4px;">同步方向</div>
+                    <div>{{ getSyncDirectionText(entry.direction) }}</div>
+                  </div>
+                  <div>
+                    <div style="opacity: 0.7; margin-bottom: 4px;">同步课程数</div>
+                    <div>{{ entry.courses_synced }}</div>
+                  </div>
+                  <div>
+                    <div style="opacity: 0.7; margin-bottom: 4px;">同步条目数</div>
+                    <div>{{ entry.schedule_synced }}</div>
+                  </div>
+                  <div v-if="entry.conflicts_found > 0" style="grid-column: span 2;">
+                    <div style="opacity: 0.7; margin-bottom: 4px;">发现冲突</div>
+                    <div style="color: var(--mdui-color-warning);">{{ entry.conflicts_found }} 个冲突</div>
+                  </div>
+                  <div style="grid-column: span 2;">
+                    <div style="opacity: 0.7; margin-bottom: 4px;">消息</div>
+                    <div>{{ entry.message || '无' }}</div>
+                  </div>
+                </div>
+              </div>
+            </mdui-collapse-item>
+          </mdui-collapse>
+        </mdui-list>
+
+        <div v-else style="padding: 24px; text-align: center; opacity: 0.5;">
+          暂无同步历史记录
+        </div>
+      </div>
     </mdui-card>
+
+    <!-- Conflict Resolution Dialog -->
+    <mdui-dialog :open="showConflictDialog" @closed="showConflictDialog = false"
+      style="--mdui-shape-corner-large: 16px; max-width: 800px; width: 90vw;">
+      <div slot="headline">检测到同步冲突</div>
+      <div slot="description" style="max-height: 60vh; overflow-y: auto;">
+        <div v-if="conflicts.hasConflicts">
+          <!-- Course Conflicts -->
+          <div v-if="conflicts.courses.length > 0" style="margin-bottom: 24px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 500;">课程冲突 ({{ conflicts.courses.length }})</h3>
+            <div v-for="(conflict, idx) in conflicts.courses" :key="`course-${idx}`"
+              style="margin-bottom: 16px; padding: 12px; background-color: var(--mdui-color-surface-container); border-radius: 8px;">
+              <div style="font-weight: 500; margin-bottom: 8px;">课程 ID: {{ conflict.id }}</div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="padding: 8px; background-color: var(--mdui-color-surface); border-radius: 4px;">
+                  <div style="font-weight: 500; margin-bottom: 4px; color: var(--mdui-color-primary);">本地版本</div>
+                  <div style="font-size: 0.875rem;">
+                    <div><strong>名称:</strong> {{ conflict.local.name }}</div>
+                    <div><strong>教师:</strong> {{ conflict.local.teacher || '无' }}</div>
+                    <div><strong>地点:</strong> {{ conflict.local.location || '无' }}</div>
+                    <div><strong>颜色:</strong> <span :style="{ color: conflict.local.color }">{{ conflict.local.color }}</span></div>
+                  </div>
+                </div>
+
+                <div style="padding: 8px; background-color: var(--mdui-color-surface); border-radius: 4px;">
+                  <div style="font-weight: 500; margin-bottom: 4px; color: var(--mdui-color-secondary);">服务器版本</div>
+                  <div style="font-size: 0.875rem;">
+                    <div><strong>名称:</strong> {{ conflict.server.name }}</div>
+                    <div><strong>教师:</strong> {{ conflict.server.teacher || '无' }}</div>
+                    <div><strong>地点:</strong> {{ conflict.server.location || '无' }}</div>
+                    <div><strong>颜色:</strong> <span :style="{ color: conflict.server.color }">{{ conflict.server.color }}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <mdui-segmented-button-group selects="single" v-model="conflictResolutions.courses[conflict.id]"
+                style="margin-top: 8px; width: 100%;">
+                <mdui-segmented-button value="server">使用服务器</mdui-segmented-button>
+                <mdui-segmented-button value="local">使用本地</mdui-segmented-button>
+                <mdui-segmented-button value="skip">跳过</mdui-segmented-button>
+              </mdui-segmented-button-group>
+            </div>
+          </div>
+
+          <!-- Schedule Entry Conflicts -->
+          <div v-if="conflicts.entries.length > 0">
+            <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 500;">课表条目冲突 ({{ conflicts.entries.length }})</h3>
+            <div v-for="(conflict, idx) in conflicts.entries" :key="`entry-${idx}`"
+              style="margin-bottom: 16px; padding: 12px; background-color: var(--mdui-color-surface-container); border-radius: 8px;">
+              <div style="font-weight: 500; margin-bottom: 8px;">条目 ID: {{ conflict.id }}</div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="padding: 8px; background-color: var(--mdui-color-surface); border-radius: 4px;">
+                  <div style="font-weight: 500; margin-bottom: 4px; color: var(--mdui-color-primary);">本地版本</div>
+                  <div style="font-size: 0.875rem;">
+                    <div><strong>星期:</strong> {{ getDayOfWeekText(conflict.local.day_of_week) }}</div>
+                    <div><strong>时间:</strong> {{ conflict.local.start_time }} - {{ conflict.local.end_time }}</div>
+                    <div><strong>周次:</strong> {{ formatWeeks(conflict.local.weeks) }}</div>
+                    <div v-if="conflict.local.note"><strong>备注:</strong> {{ conflict.local.note }}</div>
+                  </div>
+                </div>
+
+                <div style="padding: 8px; background-color: var(--mdui-color-surface); border-radius: 4px;">
+                  <div style="font-weight: 500; margin-bottom: 4px; color: var(--mdui-color-secondary);">服务器版本</div>
+                  <div style="font-size: 0.875rem;">
+                    <div><strong>星期:</strong> {{ getDayOfWeekText(conflict.server.day_of_week) }}</div>
+                    <div><strong>时间:</strong> {{ conflict.server.start_time }} - {{ conflict.server.end_time }}</div>
+                    <div><strong>周次:</strong> {{ formatWeeks(conflict.server.weeks) }}</div>
+                    <div v-if="conflict.server.note"><strong>备注:</strong> {{ conflict.server.note }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <mdui-segmented-button-group selects="single" v-model="conflictResolutions.entries[conflict.id]"
+                style="margin-top: 8px; width: 100%;">
+                <mdui-segmented-button value="server">使用服务器</mdui-segmented-button>
+                <mdui-segmented-button value="local">使用本地</mdui-segmented-button>
+                <mdui-segmented-button value="skip">跳过</mdui-segmented-button>
+              </mdui-segmented-button-group>
+            </div>
+          </div>
+        </div>
+
+        <div v-else style="padding: 24px; text-align: center;">
+          未发现冲突
+        </div>
+      </div>
+      <div slot="action">
+        <mdui-button @click="showConflictDialog = false">取消</mdui-button>
+        <mdui-button variant="filled" @click="resolveConflicts" :disabled="!conflicts.hasConflicts">
+          应用解决方案
+        </mdui-button>
+      </div>
+    </mdui-dialog>
 
     <!-- 外观设置 -->
     <mdui-card class="settings-group">
@@ -279,7 +492,7 @@ import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { settings, saveSetting, saveSettings, regenerateUUID, resetSettings, setThemeMode, applyColorScheme } from '../utils/globalVars';
 import { exportScheduleData, importScheduleData } from '../utils/schedule';
 import { initThemeFromGitHub } from '../utils/theme';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed, reactive } from 'vue';
 import { pyInvoke } from 'tauri-plugin-pytauri-api';
 
 // Reactive state for theme download
@@ -290,7 +503,353 @@ const managementServerUrl = ref(settings.server_url || '');
 const isTestingConnection = ref(false);
 const isRegistering = ref(false);
 const isSyncing = ref(false);
+const isForceSyncing = ref(false);
 const syncStatus = ref(null);
+
+// Sync history
+const syncHistory = ref([]);
+const isLoadingHistory = ref(false);
+
+// Conflict detection
+const isCheckingConflicts = ref(false);
+const conflicts = reactive({
+  hasConflicts: false,
+  courses: [],
+  entries: []
+});
+const showConflictDialog = ref(false);
+const conflictResolutions = reactive({
+  courses: {},
+  entries: {}
+});
+
+// Computed properties for sync UI
+const syncButtonText = computed(() => {
+  switch (settings.sync_direction) {
+    case 'upload':
+      return '上传到服务器';
+    case 'download':
+      return '从服务器下载';
+    case 'bidirectional':
+      return '双向同步';
+    default:
+      return '立即同步';
+  }
+});
+
+const syncButtonIcon = computed(() => {
+  switch (settings.sync_direction) {
+    case 'upload':
+      return 'upload';
+    case 'download':
+      return 'download';
+    case 'bidirectional':
+      return 'sync';
+    default:
+      return 'sync';
+  }
+});
+
+const syncStatusColor = computed(() => {
+  if (!syncStatus.value) return '';
+  if (syncStatus.value.success) {
+    return 'var(--mdui-color-surface-container)';
+  }
+  return 'var(--mdui-color-error-container)';
+});
+
+const syncStatusIcon = computed(() => {
+  if (!syncStatus.value) return '';
+  if (syncStatus.value.success) {
+    return 'check_circle';
+  }
+  return 'error';
+});
+
+const syncStatusIconColor = computed(() => {
+  if (!syncStatus.value) return '';
+  if (syncStatus.value.success) {
+    return 'var(--mdui-color-primary)';
+  }
+  return 'var(--mdui-color-error)';
+});
+
+const syncStatusTextColor = computed(() => {
+  if (!syncStatus.value) return '';
+  if (syncStatus.value.success) {
+    return 'var(--mdui-color-on-surface)';
+  }
+  return 'var(--mdui-color-on-error-container)';
+});
+
+const lastSyncTime = computed(() => {
+  if (!syncHistory.value || syncHistory.value.length === 0) return '';
+  const lastSync = syncHistory.value[0];
+  return `上次同步: ${formatTimestamp(lastSync.timestamp)}`;
+});
+
+// Helper functions for sync history
+function getSyncDirectionIcon(direction) {
+  switch (direction) {
+    case 'upload':
+      return 'upload';
+    case 'download':
+      return 'download';
+    case 'bidirectional':
+      return 'sync';
+    default:
+      return 'sync_alt';
+  }
+}
+
+function getSyncDirectionText(direction) {
+  switch (direction) {
+    case 'upload':
+      return '上传';
+    case 'download':
+      return '下载';
+    case 'bidirectional':
+      return '双向同步';
+    default:
+      return direction;
+  }
+}
+
+function getSyncStatusVariant(status) {
+  switch (status) {
+    case 'success':
+      return 'filled';
+    case 'failure':
+      return 'filled';
+    case 'conflict':
+      return 'filled';
+    default:
+      return 'outlined';
+  }
+}
+
+function getSyncStatusText(status) {
+  switch (status) {
+    case 'success':
+      return '成功';
+    case 'failure':
+      return '失败';
+    case 'conflict':
+      return '冲突';
+    default:
+      return status;
+  }
+}
+
+function formatTimestamp(timestamp) {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) {
+      return '刚刚';
+    } else if (diffMins < 60) {
+      return `${diffMins} 分钟前`;
+    } else if (diffHours < 24) {
+      return `${diffHours} 小时前`;
+    } else if (diffDays < 7) {
+      return `${diffDays} 天前`;
+    } else {
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  } catch (e) {
+    return timestamp;
+  }
+}
+
+function getDayOfWeekText(dayNum) {
+  const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return days[dayNum] || dayNum;
+}
+
+function formatWeeks(weeksStr) {
+  try {
+    const weeks = JSON.parse(weeksStr);
+    if (Array.isArray(weeks) && weeks.length > 0) {
+      return weeks.join(', ');
+    }
+    return weeksStr;
+  } catch (e) {
+    return weeksStr;
+  }
+}
+
+// Load sync history
+async function loadSyncHistory() {
+  isLoadingHistory.value = true;
+  try {
+    const response = await pyInvoke('get_sync_history', { limit: 10 });
+    if (response.success) {
+      syncHistory.value = response.history;
+    }
+  } catch (error) {
+    console.error('Failed to load sync history:', error);
+    snackbar({ message: '加载同步历史失败: ' + error, placement: 'top' });
+  } finally {
+    isLoadingHistory.value = false;
+  }
+}
+
+// Check for conflicts
+async function checkConflicts() {
+  isCheckingConflicts.value = true;
+  try {
+    const response = await pyInvoke('check_sync_conflicts');
+    if (response.success && response.has_conflicts) {
+      conflicts.courses = response.conflicted_courses;
+      conflicts.entries = response.conflicted_entries;
+      conflicts.hasConflicts = true;
+
+      // Initialize conflict resolutions to 'skip'
+      conflicts.courses.forEach(c => {
+        conflictResolutions.courses[c.id] = 'skip';
+      });
+      conflicts.entries.forEach(e => {
+        conflictResolutions.entries[e.id] = 'skip';
+      });
+
+      showConflictDialog.value = true;
+    } else if (response.success && !response.has_conflicts) {
+      snackbar({ message: '未发现冲突', placement: 'top' });
+    } else {
+      snackbar({ message: response.message || '检测冲突失败', placement: 'top' });
+    }
+  } catch (error) {
+    console.error('Check conflicts error:', error);
+    snackbar({ message: '检测冲突失败: ' + error, placement: 'top' });
+  } finally {
+    isCheckingConflicts.value = false;
+  }
+}
+
+// Resolve conflicts
+async function resolveConflicts() {
+  // This would need a backend command to apply the resolutions
+  // For now, just close the dialog and show a message
+  snackbar({
+    message: '冲突解决功能需要后端支持（待实现）',
+    placement: 'top'
+  });
+  showConflictDialog.value = false;
+}
+
+// Perform sync based on direction
+async function performSync() {
+  isSyncing.value = true;
+  syncStatus.value = null;
+
+  try {
+    const direction = settings.sync_direction;
+    let result;
+
+    if (direction === 'upload') {
+      result = await pyInvoke('sync_now');
+    } else if (direction === 'download') {
+      result = await pyInvoke('pull_from_server');
+    } else if (direction === 'bidirectional') {
+      result = await pyInvoke('bidirectional_sync_now', {
+        strategy: settings.sync_strategy
+      });
+    }
+
+    syncStatus.value = {
+      success: result.success,
+      message: result.message
+    };
+
+    if (result.success) {
+      snackbar({ message: '同步成功', placement: 'top' });
+      // Reload history after sync
+      await loadSyncHistory();
+    } else {
+      snackbar({ message: `同步失败: ${result.message}`, placement: 'top' });
+    }
+  } catch (error) {
+    console.error('Sync error:', error);
+    syncStatus.value = {
+      success: false,
+      message: `同步失败: ${error}`
+    };
+    snackbar({ message: `同步失败: ${error}`, placement: 'top' });
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
+// Force full sync
+async function forceSyncNow() {
+  isForceSyncing.value = true;
+  syncStatus.value = null;
+
+  try {
+    const result = await pyInvoke('bidirectional_sync_now', {
+      strategy: settings.sync_strategy
+    });
+
+    syncStatus.value = {
+      success: result.success,
+      message: result.message
+    };
+
+    if (result.success) {
+      snackbar({
+        message: `强制同步成功！冲突: ${result.conflicts_found}, 课程更新: ${result.courses_updated}, 条目更新: ${result.entries_updated}`,
+        placement: 'top'
+      });
+      await loadSyncHistory();
+    } else {
+      snackbar({ message: `强制同步失败: ${result.message}`, placement: 'top' });
+    }
+  } catch (error) {
+    console.error('Force sync error:', error);
+    syncStatus.value = {
+      success: false,
+      message: `强制同步失败: ${error}`
+    };
+    snackbar({ message: `强制同步失败: ${error}`, placement: 'top' });
+  } finally {
+    isForceSyncing.value = false;
+  }
+}
+
+// Sync direction change handler
+async function handleSyncDirectionChange(event) {
+  const value = event.target.value || settings.sync_direction;
+  settings.sync_direction = value;
+  await saveSetting('sync_direction', value);
+  snackbar({ message: `同步方向已设置为：${getSyncDirectionText(value)}`, placement: 'top' });
+}
+
+// Sync strategy change handler
+async function handleSyncStrategyChange(event) {
+  const value = event.target.value || settings.sync_strategy;
+  settings.sync_strategy = value;
+  await saveSetting('sync_strategy', value);
+
+  const strategyText = {
+    'server_wins': '服务器优先',
+    'local_wins': '本地优先',
+    'newest_wins': '最新优先'
+  }[value] || value;
+
+  snackbar({ message: `冲突策略已设置为：${strategyText}`, placement: 'top' });
+}
 
 // 控制模式切换处理（触摸/鼠标）
 async function handleControlModeChange(event) {
@@ -557,44 +1116,9 @@ async function registerClient() {
   }
 }
 
-// 立即同步
+// 立即同步 (deprecated - use performSync instead)
 async function syncNow() {
-  isSyncing.value = true;
-  syncStatus.value = null;
-
-  try {
-    // 调用 Python 命令同步
-    const result = await pyInvoke('sync_now');
-
-    syncStatus.value = {
-      success: result.success,
-      message: result.message
-    };
-
-    if (result.success) {
-      snackbar({
-        message: '同步成功！数据已上传到服务器',
-        placement: 'top'
-      });
-    } else {
-      snackbar({
-        message: `同步失败: ${result.message}`,
-        placement: 'top'
-      });
-    }
-  } catch (error) {
-    console.error('Sync now error:', error);
-    syncStatus.value = {
-      success: false,
-      message: `同步失败: ${error}`
-    };
-    snackbar({
-      message: `同步失败: ${error}`,
-      placement: 'top'
-    });
-  } finally {
-    isSyncing.value = false;
-  }
+  await performSync();
 }
 
 
@@ -614,6 +1138,8 @@ async function handleSaveAll() {
     reminder_enabled: settings.reminder_enabled,
     reminder_minutes: settings.reminder_minutes,
     reminder_sound: settings.reminder_sound,
+    sync_direction: settings.sync_direction,
+    sync_strategy: settings.sync_strategy,
   });
 
   if (success) {
@@ -727,6 +1253,9 @@ onMounted(() => {
       return `${Number(value) + 12} px`;
     };
   }
+
+  // Load sync history on mount
+  loadSyncHistory();
 })
 
 </script>

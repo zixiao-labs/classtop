@@ -451,3 +451,340 @@ class TestDataSerialization:
         assert entry["start_time"] == "10:00"
         assert entry["end_time"] == "11:30"
         assert entry["weeks"] == [1, 2, 3, 4, 5, 6, 7, 8]
+
+
+class TestDownloadFromServer:
+    """Tests for download_from_server method."""
+
+    @responses.activate
+    def test_download_success(self, sync_client, mock_settings_manager):
+        """Test successful download from server."""
+        mock_settings_manager.get_setting.side_effect = lambda key, default="": {
+            "server_url": "http://localhost:8765",
+            "client_uuid": "test-uuid-123"
+        }.get(key, default)
+
+        # Mock courses endpoint
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/courses",
+            json={
+                "success": True,
+                "data": {
+                    "courses": [
+                        {"id": 1, "name": "Math", "teacher": "Mr. Smith", "color": "#FF0000"}
+                    ]
+                }
+            },
+            status=200
+        )
+
+        # Mock schedule endpoint
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/schedule",
+            json={
+                "success": True,
+                "data": {
+                    "schedule_entries": [
+                        {
+                            "id": 1,
+                            "course_id": 1,
+                            "day_of_week": 1,
+                            "start_time": "08:00",
+                            "end_time": "09:30",
+                            "weeks": [1, 2, 3]
+                        }
+                    ]
+                }
+            },
+            status=200
+        )
+
+        result = sync_client.download_from_server()
+
+        assert result["success"] is True
+        assert len(result["courses"]) == 1
+        assert result["courses"][0]["name"] == "Math"
+        assert len(result["schedule_entries"]) == 1
+
+    def test_download_no_config(self, sync_client, mock_settings_manager):
+        """Test download fails when configuration is missing."""
+        mock_settings_manager.get_setting.return_value = ""
+
+        result = sync_client.download_from_server()
+
+        assert result["success"] is False
+        assert "未配置" in result["message"]
+
+    @responses.activate
+    def test_download_server_error(self, sync_client, mock_settings_manager):
+        """Test download handles server errors."""
+        mock_settings_manager.get_setting.side_effect = lambda key, default="": {
+            "server_url": "http://localhost:8765",
+            "client_uuid": "test-uuid-123"
+        }.get(key, default)
+
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/courses",
+            json={"success": False, "message": "Server error"},
+            status=200
+        )
+
+        result = sync_client.download_from_server()
+
+        assert result["success"] is False
+        assert "下载课程失败" in result["message"]
+
+
+class TestDetectConflicts:
+    """Tests for detect_conflicts method."""
+
+    def test_no_conflicts(self, sync_client):
+        """Test when there are no conflicts."""
+        local_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith", "color": "#FF0000"}],
+            "schedule_entries": [
+                {"id": 1, "course_id": 1, "day_of_week": 1, "start_time": "08:00", "end_time": "09:30", "weeks": "[1,2,3]"}
+            ]
+        }
+        server_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith", "color": "#FF0000"}],
+            "schedule_entries": [
+                {"id": 1, "course_id": 1, "day_of_week": 1, "start_time": "08:00", "end_time": "09:30", "weeks": [1, 2, 3]}
+            ]
+        }
+
+        result = sync_client.detect_conflicts(local_data, server_data)
+
+        assert result["has_conflicts"] is False
+        assert len(result["conflicted_courses"]) == 0
+        assert len(result["conflicted_entries"]) == 0
+
+    def test_course_conflict(self, sync_client):
+        """Test when there are course conflicts."""
+        local_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith", "color": "#FF0000"}],
+            "schedule_entries": []
+        }
+        server_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Dr. Johnson", "color": "#FF0000"}],
+            "schedule_entries": []
+        }
+
+        result = sync_client.detect_conflicts(local_data, server_data)
+
+        assert result["has_conflicts"] is True
+        assert len(result["conflicted_courses"]) == 1
+        assert result["conflicted_courses"][0]["id"] == 1
+        assert result["conflicted_courses"][0]["local"]["teacher"] == "Mr. Smith"
+        assert result["conflicted_courses"][0]["server"]["teacher"] == "Dr. Johnson"
+
+    def test_schedule_entry_conflict(self, sync_client):
+        """Test when there are schedule entry conflicts."""
+        local_data = {
+            "courses": [],
+            "schedule_entries": [
+                {"id": 1, "course_id": 1, "day_of_week": 1, "start_time": "08:00", "end_time": "09:30", "weeks": "[1,2,3]"}
+            ]
+        }
+        server_data = {
+            "courses": [],
+            "schedule_entries": [
+                {"id": 1, "course_id": 1, "day_of_week": 2, "start_time": "08:00", "end_time": "09:30", "weeks": [1, 2, 3]}
+            ]
+        }
+
+        result = sync_client.detect_conflicts(local_data, server_data)
+
+        assert result["has_conflicts"] is True
+        assert len(result["conflicted_entries"]) == 1
+        assert result["conflicted_entries"][0]["id"] == 1
+
+
+class TestMergeData:
+    """Tests for merge_data method."""
+
+    def test_merge_server_wins(self, sync_client):
+        """Test merge with server_wins strategy."""
+        local_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith"}],
+            "schedule_entries": []
+        }
+        server_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Dr. Johnson"}],
+            "schedule_entries": []
+        }
+
+        result = sync_client.merge_data(local_data, server_data, strategy="server_wins")
+
+        assert len(result["courses"]) == 1
+        assert result["courses"][0]["teacher"] == "Dr. Johnson"  # Server wins
+
+    def test_merge_local_wins(self, sync_client):
+        """Test merge with local_wins strategy."""
+        local_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith"}],
+            "schedule_entries": []
+        }
+        server_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Dr. Johnson"}],
+            "schedule_entries": []
+        }
+
+        result = sync_client.merge_data(local_data, server_data, strategy="local_wins")
+
+        assert len(result["courses"]) == 1
+        assert result["courses"][0]["teacher"] == "Mr. Smith"  # Local wins
+
+    def test_merge_combines_unique_items(self, sync_client):
+        """Test merge combines unique items from both sources."""
+        local_data = {
+            "courses": [{"id": 1, "name": "Math", "teacher": "Mr. Smith"}],
+            "schedule_entries": []
+        }
+        server_data = {
+            "courses": [{"id": 2, "name": "Physics", "teacher": "Dr. Johnson"}],
+            "schedule_entries": []
+        }
+
+        result = sync_client.merge_data(local_data, server_data, strategy="server_wins")
+
+        assert len(result["courses"]) == 2
+
+
+class TestApplyServerData:
+    """Tests for apply_server_data method."""
+
+    def test_apply_updates_courses(self, sync_client, mock_schedule_manager):
+        """Test apply_server_data updates existing courses."""
+        mock_schedule_manager.get_all_courses.return_value = [
+            {"id": 1, "name": "Math", "teacher": "Mr. Smith", "location": "Room 101", "color": "#FF0000"}
+        ]
+        mock_schedule_manager.get_all_schedule_entries.return_value = []
+        mock_schedule_manager.update_course.return_value = True
+
+        server_data = {
+            "courses": [
+                {"id": 1, "name": "Math", "teacher": "Dr. Johnson", "location": "Room 102", "color": "#00FF00"}
+            ],
+            "schedule_entries": []
+        }
+
+        result = sync_client.apply_server_data(server_data)
+
+        assert result is True
+        mock_schedule_manager.update_course.assert_called_once_with(
+            course_id=1,
+            name="Math",
+            teacher="Dr. Johnson",
+            location="Room 102",
+            color="#00FF00"
+        )
+
+    def test_apply_adds_schedule_entries(self, sync_client, mock_schedule_manager):
+        """Test apply_server_data adds new schedule entries."""
+        mock_schedule_manager.get_all_courses.return_value = []
+        mock_schedule_manager.get_all_schedule_entries.return_value = []
+        mock_schedule_manager.add_schedule_entry.return_value = 1
+
+        server_data = {
+            "courses": [],
+            "schedule_entries": [
+                {
+                    "id": 1,
+                    "course_id": 1,
+                    "day_of_week": 1,
+                    "start_time": "08:00",
+                    "end_time": "09:30",
+                    "weeks": [1, 2, 3],
+                    "note": "Test note"
+                }
+            ]
+        }
+
+        result = sync_client.apply_server_data(server_data)
+
+        assert result is True
+        mock_schedule_manager.add_schedule_entry.assert_called_once()
+
+
+class TestBidirectionalSync:
+    """Tests for bidirectional_sync method."""
+
+    @responses.activate
+    def test_bidirectional_sync_success(self, sync_client, mock_settings_manager, mock_schedule_manager):
+        """Test successful bidirectional sync."""
+        # Setup settings
+        mock_settings_manager.get_setting.side_effect = lambda key, default="": {
+            "server_url": "http://localhost:8765",
+            "client_uuid": "test-uuid-123"
+        }.get(key, default)
+
+        # Setup local data
+        mock_schedule_manager.get_all_courses.return_value = [
+            {"id": 1, "name": "Math", "teacher": "Mr. Smith", "location": "101", "color": "#FF0000"}
+        ]
+        mock_schedule_manager.get_all_schedule_entries.return_value = []
+        mock_schedule_manager.update_course.return_value = True
+
+        # Mock download endpoints
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/courses",
+            json={
+                "success": True,
+                "data": {
+                    "courses": [
+                        {"id": 1, "name": "Math", "teacher": "Dr. Johnson", "location": "102", "color": "#00FF00"}
+                    ]
+                }
+            },
+            status=200
+        )
+
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/schedule",
+            json={
+                "success": True,
+                "data": {"schedule_entries": []}
+            },
+            status=200
+        )
+
+        # Mock upload endpoint
+        responses.add(
+            responses.POST,
+            "http://localhost:8765/api/sync",
+            json={"success": True, "data": {"synced_courses": 1, "synced_entries": 0}},
+            status=200
+        )
+
+        result = sync_client.bidirectional_sync(strategy="server_wins")
+
+        assert result["success"] is True
+        assert result["conflicts_found"] == 1  # One course conflict
+        assert result["courses_updated"] == 1
+
+    @responses.activate
+    def test_bidirectional_sync_download_failure(self, sync_client, mock_settings_manager):
+        """Test bidirectional sync handles download failure."""
+        mock_settings_manager.get_setting.side_effect = lambda key, default="": {
+            "server_url": "http://localhost:8765",
+            "client_uuid": "test-uuid-123"
+        }.get(key, default)
+
+        responses.add(
+            responses.GET,
+            "http://localhost:8765/api/clients/test-uuid-123/courses",
+            json={"success": False, "message": "Download failed"},
+            status=200
+        )
+
+        result = sync_client.bidirectional_sync()
+
+        assert result["success"] is False
+        assert "下载失败" in result["message"]
+        assert result["conflicts_found"] == 0

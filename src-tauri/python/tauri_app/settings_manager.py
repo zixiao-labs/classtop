@@ -20,6 +20,8 @@ class SettingsManager:
         # Management Server 同步设置
         'sync_enabled': 'false',  # 是否启用自动同步
         'sync_interval': '300',  # 同步间隔（秒），默认 5 分钟
+        'sync_direction': 'upload',  # 同步方向: upload, download, bidirectional
+        'sync_strategy': 'server_wins',  # 冲突解决策略: server_wins, local_wins, newest_wins
 
         # API 服务器设置
         'api_server_enabled': 'false',  # 是否启用 API 服务器
