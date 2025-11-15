@@ -86,6 +86,28 @@ echo ""
 echo "📁 Build artifacts located at:"
 echo "   src-tauri/target/bundle-release/"
 echo ""
+echo "🔑Add GPG signing of artifacts "
+gpg --list-keys >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "🔐 GPG detected, signing artifacts..."
+    # Add signing for Linux AppImage
+    if [ -f "src-tauri/target/bundle-release/bundle/AppImage" ]; then
+        gpg --detach-sign --armor "src-tauri/target/bundle-release/bundle/AppImage"
+        echo "✅ Signed: src-tauri/target/bundle-release/bundle/AppImage"
+    fi
+    # Add signing for macOS DMG files
+    for file in src-tauri/target/bundle-release/bundle/dmg/*; do
+        gpg --detach-sign --armor "$file"
+        echo "✅ Signed: $file"
+    done
+    echo ""
+
+
+else
+    echo "⚠️  GPG not detected, skipping signing"
+    echo ""
+fi
+
 
 # List build artifacts
 if [ -d "src-tauri/target/bundle-release" ]; then
