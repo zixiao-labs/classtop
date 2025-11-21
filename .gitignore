@@ -40,3 +40,5 @@ src-tauri/target/debug/
 
 # rust dependency directory
 **/target/
+/gpg-private-key.txt
+/secert.txt
