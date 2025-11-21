@@ -61,7 +61,16 @@ echo ""
 
 # Install Python package
 echo "📦 Installing Python package..."
-uv pip install --exact --python="$PYTHON_PATH" --reinstall-package=classtop ./src-tauri
+
+# Check if uv is available
+if command -v uv &> /dev/null; then
+    echo "Using uv for package installation..."
+    uv pip install --exact --python="$PYTHON_PATH" --reinstall-package=classtop ./src-tauri
+else
+    echo "uv not found, using pip3..."
+    "$PYTHON_PATH" -m pip install --upgrade pip
+    "$PYTHON_PATH" -m pip install -e ./src-tauri
+fi
 
 if [ $? -ne 0 ]; then
     echo "❌ Failed to install Python package"
