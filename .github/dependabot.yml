@@ -6,10 +6,17 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "rust"
+    groups:
+      # Group all Rust dependencies together
+      rust-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "glib"
     ignore:
       # Keep glib pinned unless there's a security update
       # It's platform-specific and manually managed for Linux
@@ -50,16 +57,15 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "python"
     groups:
-      # Group pytest-related updates
-      testing:
+      # Group all Python dependencies together
+      python-dependencies:
         patterns:
-          - "pytest*"
-          - "coverage"
+          - "*"
 
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"

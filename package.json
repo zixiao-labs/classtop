@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "prepare": "husky"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -25,8 +26,11 @@
     "vue-router": "^4.2.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^6.0.1",
+    "husky": "^9.1.7",
     "vite": "^6.0.3"
   }
 }
