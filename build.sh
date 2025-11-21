@@ -11,6 +11,39 @@ echo ""
 # Get absolute path to project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Setup Rust/Cargo path if not in PATH
+if ! command -v cargo &> /dev/null; then
+    # Check for Homebrew rustup installation
+    if [ -f "/opt/homebrew/bin/rustup" ]; then
+        CARGO_PATH=$(/opt/homebrew/bin/rustup which cargo 2>/dev/null)
+        if [ -n "$CARGO_PATH" ]; then
+            RUST_BIN_DIR=$(dirname "$CARGO_PATH")
+            export PATH="$RUST_BIN_DIR:$PATH"
+            echo "🔧 Added Rust tools to PATH: $RUST_BIN_DIR"
+        fi
+    # Check for standard rustup installation
+    elif [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+        echo "🔧 Sourced ~/.cargo/env"
+    elif [ -d "$HOME/.rustup/toolchains" ]; then
+        TOOLCHAIN=$(ls -1 "$HOME/.rustup/toolchains" | head -1)
+        if [ -n "$TOOLCHAIN" ]; then
+            export PATH="$HOME/.rustup/toolchains/$TOOLCHAIN/bin:$PATH"
+            echo "🔧 Added Rust toolchain to PATH"
+        fi
+    fi
+fi
+
+# Verify cargo is available
+if ! command -v cargo &> /dev/null; then
+    echo "❌ Error: cargo not found"
+    echo "Please install Rust from https://www.rust-lang.org/tools/install"
+    exit 1
+fi
+
+echo "✅ Found cargo: $(which cargo)"
+echo ""
+
 # Detect platform
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     PLATFORM="Linux"
