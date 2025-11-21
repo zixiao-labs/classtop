@@ -95,12 +95,32 @@ jobs:
           python -m pip install --upgrade pip uv
           uv pip install --exact --compile-bytecode --python=${{ env.PYTHON_PATH }} --reinstall-package=classtop ./src-tauri
 
+      - name: Import GPG key
+        if: secrets.GPG_PRIVATE_KEY != ''
+        shell: bash
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
+          echo "✅ GPG key imported successfully"
+          gpg --list-secret-keys
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS code signing
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows code signing
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Python environment
           PYO3_PYTHON: ${{ github.workspace }}/src-tauri/pyembed/python/${{ matrix.platform == 'windows-latest' && 'python.exe' || 'bin/python3' }}
           RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && format('-L {0}/src-tauri/pyembed/python/libs', github.workspace) || format('-L {0}/src-tauri/pyembed/python/lib', github.workspace) }}
         with:
@@ -110,3 +130,37 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --config=src-tauri/tauri.bundle.json ${{ matrix.bundles }} -- --profile bundle-release ${{ matrix.args }}
+
+      - name: Sign artifacts with GPG
+        if: secrets.GPG_PRIVATE_KEY != ''
+        shell: bash
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "🔐 Signing release artifacts with GPG..."
+
+          # Find all build artifacts and sign them
+          find src-tauri/target/bundle-release -type f \
+            \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.deb" -o \
+               -name "*.rpm" -o -name "*.AppImage" -o -name "*.exe" -o \
+               -name "*.msi" -o -name "*.nsis.zip" \) \
+            -exec sh -c 'echo "Signing: $1" && gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --pinentry-mode loopback --detach-sign --armor "$1"' _ {} \;
+
+          echo "✅ All artifacts signed with GPG"
+          echo ""
+          echo "📋 Signed files:"
+          find src-tauri/target/bundle-release -name "*.asc" -type f
+
+      - name: Verify GPG signatures
+        if: secrets.GPG_PRIVATE_KEY != ''
+        shell: bash
+        run: |
+          echo "🔍 Verifying GPG signatures..."
+
+          for sig in $(find src-tauri/target/bundle-release -name "*.asc" -type f); do
+            file="${sig%.asc}"
+            echo "Verifying: $file"
+            gpg --verify "$sig" "$file" || exit 1
+          done
+
+          echo "✅ All signatures verified successfully"
