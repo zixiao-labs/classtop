@@ -106,20 +106,56 @@ jobs:
             echo "⚠️ GPG_PRIVATE_KEY not set, skipping GPG key import"
           fi
 
-      - name: Build Tauri app
+      - name: Disable macOS code signing
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "⚠️ Building unsigned macOS app (no Apple Developer certificate)"
+          echo "ℹ️  Using ad-hoc signing (identity: -)"
+
+      - name: Build Tauri app (macOS - unsigned)
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
+          PYO3_PYTHON: ${{ github.workspace }}/src-tauri/pyembed/python/bin/python3
+          RUSTFLAGS: -L ${{ github.workspace }}/src-tauri/pyembed/python/lib
+        run: |
+          npm run tauri build -- --config=src-tauri/tauri.bundle.json --bundles app -- --profile bundle-release
+
+      - name: Upload macOS artifacts to release
+        if: matrix.platform == 'macos-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create release if it doesn't exist
+          gh release create ${{ github.ref_name }} \
+            --title "ClassTop ${{ github.ref_name }}" \
+            --notes "See the assets to download and install this version." \
+            --draft || echo "Release already exists"
+
+          # Find and upload all .app bundles (as tar.gz)
+          find src-tauri/target/bundle-release/bundle/macos -name "*.app" -type d | while read app; do
+            if [ -d "$app" ]; then
+              echo "Packaging: $app"
+              tar -czf "${app}.tar.gz" -C "$(dirname "$app")" "$(basename "$app")"
+              echo "Uploading: ${app}.tar.gz"
+              gh release upload ${{ github.ref_name }} "${app}.tar.gz" --clobber
+            fi
+          done
+
+          # Upload .dmg files if they exist
+          find src-tauri/target/bundle-release/bundle/macos -name "*.dmg" -type f | while read dmg; do
+            echo "Uploading: $dmg"
+            gh release upload ${{ github.ref_name }} "$dmg" --clobber
+          done
+
+      - name: Build Tauri app (Windows/Linux)
+        if: matrix.platform != 'macos-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Tauri updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # Windows code signing
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}

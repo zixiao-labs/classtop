@@ -12,6 +12,12 @@
         "resources": {
             "pyembed/python": "./",
             "icons": "./icons"
+        },
+        "macOS": {
+            "signingIdentity": null,
+            "entitlements": null,
+            "providerShortName": null,
+            "minimumSystemVersion": "10.13"
         }
     }
 }
