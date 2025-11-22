@@ -96,7 +96,7 @@ jobs:
           uv pip install --exact --compile-bytecode --python=${{ env.PYTHON_PATH }} --reinstall-package=classtop ./src-tauri
 
       - name: Import GPG key
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: ${{ secrets.GPG_PRIVATE_KEY }}
         shell: bash
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --batch --import
@@ -132,7 +132,7 @@ jobs:
           args: --config=src-tauri/tauri.bundle.json ${{ matrix.bundles }} -- --profile bundle-release ${{ matrix.args }}
 
       - name: Sign artifacts with GPG
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: ${{ secrets.GPG_PRIVATE_KEY }}
         shell: bash
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -152,7 +152,7 @@ jobs:
           find src-tauri/target/bundle-release -name "*.asc" -type f
 
       - name: Verify GPG signatures
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        if: ${{ secrets.GPG_PRIVATE_KEY }}
         shell: bash
         run: |
           echo "🔍 Verifying GPG signatures..."
