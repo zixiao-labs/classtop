@@ -2,9 +2,9 @@
 
 一个基于 Tauri + Vue 3 + PyTauri 的桌面课程管理与显示工具，提供置顶进度条和全功能管理界面。
 
-警告⚠️：由于@HwlloChen暂时离开，本仓库将归档一段时间，我们将创建新的Classtop-CE项目，用Electron重写（虽然体积较大但是更稳定），带来Sentry遥测，MDM和OA集成等新功能
+警告⚠️：由于@HwlloChen暂时离开，本仓库将归档一段时间，我们将创建新的Classtop-Remix项目，用Electron重写（虽然体积较大但是更稳定），带来Sentry遥测，MDM和OA集成等新功能
 
-二次警告⚠️，该项目将放弃维护，永久性归档，并且永久性停止支持（大概率要**github archive program**见了，希望~~子孙后代别*炎国粗口*看见这玩意，用了最不稳定的技术栈（指Tauri）~~，请敬请期待Classtop-CE）
+二次警告⚠️，该项目将放弃维护，永久性归档，并且永久性停止支持（大概率要**github archive program**见了，希望~~子孙后代别*炎国粗口*看见这玩意，用了最不稳定的技术栈（指Tauri）~~，请敬请期待Classtop-Remix）
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
